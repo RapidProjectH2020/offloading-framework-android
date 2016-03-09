@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright (C) 2015, 2016 RAPID EU Project
+   
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+   
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+   
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <string-array name="nrClones">
+        <item name="1">1 Clone</item>
+        <item name="2">2 Clones</item>
+        <item name="4">4 Clones</item>
+        <item name="8">8 Clones</item>
+    </string-array>
+    
+    <integer-array name="nrClonesInt">
+        <item name="1">1</item>
+        <item name="2">2</item>
+        <item name="4">4</item>
+        <item name="8">8</item>
+    </integer-array>
+    
+    <string-array name="nrClonesValues">
+        <item name="1">1</item>
+        <item name="2">2</item>
+        <item name="4">4</item>
+        <item name="8">8</item>
+    </string-array>
+    
+    <string-array name="nrQueens">
+        <item name="4">4 Queens</item>
+        <item name="5">5 Queens</item>
+        <item name="6">6 Queens</item>
+        <item name="7">7 Queens</item>
+        <item name="8">8 Queens</item>
+    </string-array>
+    
+    <integer-array name="nrQueensInt">
+        <item name="4">4</item>
+        <item name="5">5</item>
+        <item name="6">6</item>
+        <item name="7">7</item>
+        <item name="8">8</item>
+    </integer-array>
+    
+    <string-array name="nrQueensValues">
+        <item name="4">4</item>
+        <item name="5">5</item>
+        <item name="6">6</item>
+        <item name="7">7</item>
+        <item name="8">8</item>
+    </string-array>
+    
+    <string-array name="nrPhotosValues">
+        <item name="1">1</item>
+        <item name="10">10</item>
+        <item name="100">100</item>
+        <item name="1000">1000</item>
+    </string-array>
+    
+    <string-array name="dataRateValues">
+        <item name="-1">-1</item>
+        <item name="0">0</item>
+        <item name="100">100</item>
+        <item name="256">256</item>
+        <item name="512">512</item>
+        <item name="768">768</item>
+        <item name="1000">1000</item>
+        <item name="2000">2000</item>
+        <item name="4000">4000</item>
+        <item name="6000">6000</item>
+        <item name="8000">8000</item>
+        <item name="10000">10000</item>
+    </string-array>
+    
+    <string-array name = "clone_ids_array">
+        <item>"-1"</item>
+        <item>"0"</item>
+        <item>"1"</item>
+        <item>"2"</item>
+        <item>"3"</item>
+        <item>"4"</item>
+        <item>"5"</item>
+        <item>"6"</item>
+        <item>"7"</item>
+    </string-array>
+    
+</resources>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright (C) 2015, 2016 RAPID EU Project
+   
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+   
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+   
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ -->
+
+<resources>
+
+    <string name="delimitator">------------------------------------------</string>
+    <string name="app_name">RAPID Offloading Framework</string>
+    <string name="cpuLoader1">CPU Loader #1</string>
+    <string name="cpuLoader2">CPU Loader #2</string>
+    <string name="cpuLoader3">CPU Loader #3</string>
+    <string name="scenario1">Scenario 1</string>
+    <string name="scenario2">Scenario 2</string>
+    <string name="jni1">JNI test</string>
+    <string name="benchmark1">Benchmark Bundle 1</string>
+    <string name="benchmark2">Benchmark Bundle 2</string>
+    <string name="allBundles">All Bundles</string>
+    <string name="puzzleScenariosTitle">Puzzle Scenarios</string>
+    <string name="chooseApplication">Choose the application to offload</string>
+    <string name="chooseOptimization">Choose what to optimize by offloading</string>
+    <string name="faceDetection">Face Detection</string>
+    <string name="virusScanning">Virus Scanning</string>
+    <string name="sudoku">Solve Sudoku</string>
+    <string name="eightQueens">Solve NQueens</string>
+    <string name="radioButtonStaticLocal">Always Local</string>
+    <string name="radioButtonStaticRemote">Always Remote</string>
+    <string name="radioButtonHybrid">Hybrid</string>
+    <string name="radioButtonEnergy">Energy</string>
+    <string name="radioButtonTime">Delay (Execution Time + Communication)</string>
+    <string name="radioButtonTimeEnergy">Energy and Delay</string>
+    <string name="textLocalFraction">Local fraction [0, 1]</string>
+    <string name="allExperiments">Run All Experiments</string>
+    <string name="nrClones">Number of VMs:</string>
+    <string name="nrQueens">Number of Queens:</string>
+    <string name="nrPhotos">Number of Photos:</string>
+    <string name="title_activity_main">MainActivity</string>
+    <string name="action_settings">Settings</string>
+    
+    <string name="useRapidText">Use Rapid Infrastructure or Direct connection with VM</string>
+    <string name="useRapidYes">With Rapid infrastructure</string>
+    <string name="useRapidNo">Direct connection to VM</string>
+    
+    <string name="textCommunicationType">Choose the communication type</string>
+    <string name="radioClearCommunication">Clear communication</string>
+    <string name="radioSSLCommunication">SSL communication</string>
+    <string name="radioChooseFromMethodAnnotation">Choose from methods annotations</string>
+    
+    <string name="hintInstertIpAddress">Insert VM\'s IP</string>
+    <string name="textRememberSettings">Remember settings</string>
+    <string name="textChooseVM">Choose the remote device</string>
+    <string name="start">Start</string>
+	<string name="start_as_new_button">Connect to new VM</string>
+	<string name="start_as_old_button">Connect to previous VM</string>
+	<string name="start_as_old_button_description">If this device was connected previously to a VM, then the Registration Manager will try to connect to that VM again.</string>
+	<string name="start_as_D2D_peer">Connect to nearby mobile devices</string>
+	<string name="textWarningOnlyD2DOffloading">Device not connected to Internet!\nYou can\'t connect to remote VMs on the cloud, only to nearby mobile devices for D2D offloading.</string>
+	<string name="textVmConnected">Connected to VM</string>
+	<string name="textVmDisconnected">Not Connected to VM</string>
+	
+	<string name="downloadFile">Download file from Manager</string>
+	<string name="uploadFile">Upload file to Manager</string>
+	<string name="testConnection">Connect 1000 times to clone</string>
+	<string name="chooseDataRate">Choose data rate: </string>
+	<string name="testSendBytes">Test sending bytes 1000 times to clone</string>
+	<string name="testReceiveBytes">Test receiving bytes 1000 times from clone</string>
+
+</resources>

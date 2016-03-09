@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright (C) 2015, 2016 RAPID EU Project
+   
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+   
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+   
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ -->
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="5dp"
+    android:orientation="vertical" >
+
+    <CheckBox
+        android:id="@+id/checkBoxRememberSettings"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:checked="true"
+        android:text="@string/textRememberSettings" />
+
+    <View style="@style/Divider" />
+
+    <TextView
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="5dp"
+        android:layout_marginTop="2dp"
+        android:gravity="center_vertical"
+        android:text="@string/useRapidText"
+        android:textColor="@android:color/holo_blue_dark" />
+
+    <RadioGroup
+        android:id="@+id/radioGroupUseRapid"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingBottom="15dp" >
+
+        <RadioButton
+            android:id="@+id/radioUseRapidYes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/useRapidYes" />
+
+        <RadioButton
+            android:id="@+id/radioUseRapidNo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/useRapidNo" />
+    </RadioGroup>
+
+    <View style="@style/Divider" />
+
+    <TextView
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="5dp"
+        android:layout_marginTop="2dp"
+        android:gravity="center_vertical"
+        android:text="@string/textCommunicationType"
+        android:textColor="@android:color/holo_blue_dark" />
+
+    <RadioGroup
+        android:id="@+id/communicationRadioGroup"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingBottom="15dp" >
+
+        <RadioButton
+            android:id="@+id/radio_clear_communication"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:onClick="onRadioCommunicationTypeChecked"
+            android:text="@string/radioClearCommunication" />
+
+        <RadioButton
+            android:id="@+id/radio_ssl_communication"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:enabled="false"
+            android:onClick="onRadioCommunicationTypeChecked"
+            android:text="@string/radioSSLCommunication" />
+
+        <RadioButton
+            android:id="@+id/radio_choose_from_annotation_communication"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:enabled="false"
+            android:onClick="onRadioCommunicationTypeChecked"
+            android:text="@string/radioChooseFromMethodAnnotation" />
+    </RadioGroup>
+
+    <View style="@style/Divider" />
+
+    <TextView
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="5dp"
+        android:layout_marginTop="2dp"
+        android:gravity="center_vertical"
+        android:text="@string/textChooseVM"
+        android:textColor="@android:color/holo_blue_dark" />
+
+    <RadioGroup
+        android:id="@+id/radioGroupStartAs"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone" >
+
+        <RadioButton
+            android:id="@+id/radioStartAsNewVm"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/start_as_new_button" />
+
+        <RadioButton
+            android:id="@+id/radioStartAsOldVm"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/start_as_old_button" />
+
+        <RadioButton
+            android:id="@+id/radioStartAsD2D"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/start_as_D2D_peer" />
+    </RadioGroup>
+
+    <EditText
+        android:id="@+id/editTextIpAddress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:digits="0123456789."
+        android:ems="10"
+        android:hint="@string/hintInstertIpAddress"
+        android:inputType="number|numberDecimal" >
+
+        <requestFocus />
+    </EditText>
+
+    <!--
+         <Button
+        android:id="@+id/start_as_new_button"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:enabled="true"
+        android:onClick="startAsNewPhone"
+        android:text="@string/start_as_new_button" />
+
+    <Button
+        android:id="@+id/start_as_old_button"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:enabled="false"
+        android:onClick="startAsOldPhone"
+        android:text="@string/start_as_old_button" />
+
+    <Button
+        android:id="@+id/start_as_D2D_peer_button"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:enabled="false"
+        android:onClick="startAsD2DPeer"
+        android:text="@string/start_as_D2D_peer" />
+    -->
+
+
+    <!--
+    <TextView
+        android:id="@+id/register_manager_message"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="5dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="15dp"
+        android:gravity="center_vertical"
+        android:text="@string/textWarningOnlyD2DOffloading"
+        android:textColor="@android:color/holo_orange_dark" />
+    -->
+
+    <Button
+        android:id="@+id/buttonStart"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:onClick="onStartButton"
+        android:text="@string/start" />
+
+</LinearLayout>

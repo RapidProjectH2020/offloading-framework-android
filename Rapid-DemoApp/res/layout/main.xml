@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright (C) 2015, 2016 RAPID EU Project
+   
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+   
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
+   
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ -->
+
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/scrollView1"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:layout_weight="1" >
+
+    <TableLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" >
+
+        <TableRow android:paddingBottom="15dp"
+            android:paddingTop="10dp" >
+
+            <TextView
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="0"
+                android:gravity="center_vertical"
+                android:text="@string/nrClones" />
+
+            <Spinner
+                android:id="@+id/spinnerNrClones"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0"
+                android:entries="@array/nrClonesValues" />
+        </TableRow>
+
+        <!--
+    <TextView android:id="@+id/batteryLevel" android:layout_width="fill_parent"
+		android:layout_height="wrap_content" android:gravity="center_vertical"
+		android:text="Single Methods" />
+
+	<Button android:id="@+id/cpuLoader1" android:text="@string/cpuLoader1"
+		android:layout_width="wrap_content" android:layout_height="wrap_content"
+		android:onClick="onClickLoader1" />
+
+	<Button android:id="@+id/cpuLoader2" android:text="@string/cpuLoader2"
+		android:layout_width="wrap_content" android:layout_height="wrap_content"
+		android:onClick="onClickLoader2" />
+
+	<Button android:id="@+id/cpuLoader3" android:text="@string/cpuLoader3"
+		android:layout_width="wrap_content" android:layout_height="wrap_content"
+		android:onClick="onClickLoader3" />
+        -->
+        <!--
+	<TableRow>
+	<TextView android:layout_width="fill_parent"
+		android:layout_height="wrap_content" android:gravity="center_vertical"
+		android:text="CalcIntensive scenarios" />
+	</TableRow>
+	<TableRow>
+	<Button android:id="@+id/scenario1" android:text="@string/scenario1"
+		android:layout_width="wrap_content" android:layout_height="wrap_content"
+		android:onClick="onClickScenario1" />
+
+	<Button android:id="@+id/scenario2" android:text="@string/scenario2"
+		android:layout_width="wrap_content" android:layout_height="wrap_content"
+		android:onClick="onClickScenario2" />
+	</TableRow>
+        -->
+        <!--
+	<TextView android:layout_width="fill_parent"
+		android:layout_height="wrap_content" android:gravity="center_vertical"
+		android:text="JNI tests" />
+
+	<Button android:id="@+id/jni1" android:text="@string/jni1"
+		android:layout_width="wrap_content" android:layout_height="wrap_content"
+		android:onClick="onClickJni1" />
+        -->
+        <!--
+	<TextView android:layout_width="fill_parent"
+		android:layout_height="wrap_content" android:gravity="center_vertical"
+		android:text="Benchmark Bundles" />
+        -->
+
+        <View style="@style/Divider" />
+
+        <TextView
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:text="@string/chooseOptimization"
+            android:paddingTop="2dp"
+            android:textColor="@android:color/holo_blue_dark" />
+
+        <RadioGroup
+            android:id="@+id/executionRadioGroup"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="15dp" >
+
+            <RadioButton
+                android:id="@+id/radio_local"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:onClick="onRadioExecLocationChecked"
+                android:text="@string/radioButtonStaticLocal" />
+
+            <RadioButton
+                android:id="@+id/radio_remote"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:enabled="false"
+                android:onClick="onRadioExecLocationChecked"
+                android:text="@string/radioButtonStaticRemote" />
+            
+            <RadioButton
+                android:id="@+id/radio_exec_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:enabled="false"
+                android:onClick="onRadioExecLocationChecked"
+                android:text="@string/radioButtonTime" />
+
+            <RadioButton
+                android:id="@+id/radio_energy"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:enabled="false"
+                android:onClick="onRadioExecLocationChecked"
+                android:text="@string/radioButtonEnergy" />
+
+            <RadioButton
+                android:id="@+id/radio_exec_time_energy"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:enabled="false"
+                android:onClick="onRadioExecLocationChecked"
+                android:text="@string/radioButtonTimeEnergy" />
+
+            <RadioButton
+                android:id="@+id/radio_hybrid"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:enabled="false"
+                android:onClick="onRadioExecLocationChecked"
+                android:text="@string/radioButtonHybrid" />
+        </RadioGroup>
+
+        <EditText
+            android:id="@+id/local_fraction"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/textLocalFraction"
+            android:inputType="numberDecimal"
+            android:visibility="gone" />
+
+        <View style="@style/Divider" />
+
+        <TextView
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:text="@string/chooseApplication"
+            android:paddingBottom="5dp"
+            android:paddingTop="2dp"
+            android:textColor="@android:color/holo_blue_dark" />
+
+        <Button
+            android:id="@+id/virsuScanning"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onClickVirusScanning"
+            android:text="@string/virusScanning" />
+
+        <!--
+	<Button android:id="@+id/benchmark2" android:text="@string/benchmark2"
+		android:layout_width="wrap_content" android:layout_height="wrap_content"
+		android:onClick="onClickBenchmark2" />
+	
+
+	<Button android:id="@+id/allBundles" android:text="@string/allBundles"
+		android:layout_width="wrap_content" android:layout_height="wrap_content"
+		android:onClick="onClickBenchmarksAll" />
+        -->
+
+
+        <!--
+        <TableRow>
+
+            <TextView
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="0"
+                android:gravity="center_vertical"
+                android:text="@string/nrPhotos" />
+
+            <Spinner
+                android:id="@+id/spinnerNrPhotos"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:entries="@array/nrPhotosValues" />
+
+            <Button
+                android:id="@+id/faceDetection"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:onClick="onClickFaceDetection"
+                android:text="@string/faceDetection" />
+        </TableRow>
+        -->
+
+        <TableRow>
+
+            <TextView
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="0"
+                android:gravity="center_vertical"
+                android:text="@string/nrQueens" />
+
+            <Spinner
+                android:id="@+id/spinnerNrQueens"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="2"
+                android:entries="@array/nrQueensValues" />
+
+            <Button
+                android:id="@+id/eightQueens"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="3"
+                android:onClick="onClickQueenSolver"
+                android:text="@string/eightQueens" />
+        </TableRow>
+
+        <Button
+            android:id="@+id/jni1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:onClick="onClickJni1"
+            android:text="@string/jni1" />
+        
+        <TextView
+            android:id="@+id/textVmConnectionStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:paddingTop="10dp"
+            android:textSize="18sp"
+            android:text="@string/textVmDisconnected"
+            android:textColor="@android:color/holo_red_dark" />
+
+        <!--
+        <TextView
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:text="@string/delimitator" />
+
+        <Button
+            android:id="@+id/benchmark1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onClickBenchmark1"
+            android:text="@string/benchmark1" />
+
+        <TextView
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:text="@string/delimitator" />
+
+        
+        <Button
+            android:id="@+id/testConnection"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onTestConnection"
+            android:text="@string/testConnection" />
+        
+
+        <TableRow>
+
+            <TextView
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="0"
+                android:gravity="center_vertical"
+                android:text="@string/chooseDataRate" />
+
+            <Spinner
+                android:id="@+id/spinnerDataRates"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:entries="@array/dataRateValues" />
+        </TableRow>
+
+        <Button
+            android:id="@+id/testSendBytes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onTestSendBytes"
+            android:text="@string/testSendBytes" />
+
+        <Button
+            android:id="@+id/testReceiveBytes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onTestReceiveBytes"
+            android:text="@string/testReceiveBytes" />
+        -->
+    </TableLayout>
+
+</ScrollView>
