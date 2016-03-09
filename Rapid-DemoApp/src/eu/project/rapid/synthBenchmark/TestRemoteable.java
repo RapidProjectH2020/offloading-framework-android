@@ -26,12 +26,12 @@ import eu.project.rapid.ac.Remoteable;
 /**
  * Simple class that tests offloading for trivial applications.
  */
-public class DummyRemoteable extends Remoteable {
+public class TestRemoteable extends Remoteable {
   private static final long serialVersionUID = 1L;
 
   public transient DFE dfe;
 
-  public DummyRemoteable(DFE dfe) {
+  public TestRemoteable(DFE dfe) {
     this.dfe = dfe;
   }
 

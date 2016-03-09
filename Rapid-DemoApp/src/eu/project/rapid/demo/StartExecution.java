@@ -1,19 +1,17 @@
 /*******************************************************************************
  * Copyright (C) 2015, 2016 RAPID EU Project
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify it under the terms of the
+ * GNU Lesser General Public License as published by the Free Software Foundation; either version
+ * 2.1 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * You should have received a copy of the GNU Lesser General Public License along with this library;
+ * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *******************************************************************************/
 package eu.project.rapid.demo;
 
@@ -27,6 +25,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
+import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -37,6 +36,7 @@ import eu.project.rapid.common.Clone;
 import eu.project.rapid.queens.NQueens;
 import eu.project.rapid.sudoku.Sudoku;
 import eu.project.rapid.synthBenchmark.JniTest;
+import eu.project.rapid.synthBenchmark.TestRemoteable;
 import eu.project.rapid.virus.VirusScanning;
 
 /**
@@ -47,12 +47,14 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
   private static final String TAG = "StartExecution";
 
   public static int nrClones = 1;
+  private LinearLayout layoutNrClones;
   private TextView textViewVmConnected;
   private RadioGroup executionRadioGroup;
   private Handler handler;
 
   private String vmIp;
   private DFE dFE;
+  private boolean useRapidInfrastructure;
 
   /** Called when the activity is first created. */
   @Override
@@ -61,17 +63,27 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
     setContentView(R.layout.main);
     Log.i(TAG, "onCreate");
 
+    vmIp = getIntent().getStringExtra(MainActivity.KEY_VM_IP);
+    useRapidInfrastructure =
+        getIntent().getBooleanExtra(MainActivity.KEY_USE_RAPID_INFRASTRUCTURE, false);
+
     handler = new Handler();
-    Spinner nrClonesSpinner = (Spinner) findViewById(R.id.spinnerNrClones);
-    nrClonesSpinner.setOnItemSelectedListener(new NrClonesSelectedListener());
+
+    layoutNrClones = (LinearLayout) findViewById(R.id.layoutNrClones);
+    if (useRapidInfrastructure) {
+      layoutNrClones.setVisibility(View.VISIBLE);
+      Spinner nrClonesSpinner = (Spinner) findViewById(R.id.spinnerNrClones);
+      nrClonesSpinner.setOnItemSelectedListener(new NrClonesSelectedListener());
+    } else {
+      layoutNrClones.setVisibility(View.GONE);
+    }
 
     executionRadioGroup = (RadioGroup) findViewById(R.id.executionRadioGroup);
     textViewVmConnected = (TextView) findViewById(R.id.textVmConnectionStatus);
 
-    vmIp = getIntent().getStringExtra(MainActivity.KEY_VM_IP);
     // If we don't specify the IP of the VM, we assume that we are using the Rapid infrastructure,
     // i.e. the DS, the VMM, the SLAM, etc., which means that the DFE will select automatically a
-    // VM. We leave the user select a VM manually for quick deploy and testing.
+    // VM. We leave the user select a VM manually for fast deploy and testing.
     if (vmIp == null) {
       dFE = new DFE(getPackageName(), getPackageManager(), this);
     } else {
@@ -111,6 +123,24 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
   public void onPause() {
     super.onPause();
     Log.d(TAG, "OnPause");
+  }
+
+  public void onClickLoader1(View v) {
+    TestRemoteable test = new TestRemoteable(dFE);
+    String result = test.cpuLoader1();
+    Toast.makeText(StartExecution.this, result, Toast.LENGTH_SHORT).show();
+  }
+
+  public void onClickLoader2(View v) {
+    TestRemoteable test = new TestRemoteable(dFE);
+    String result = test.cpuLoader2();
+    Toast.makeText(StartExecution.this, result, Toast.LENGTH_SHORT).show();
+  }
+
+  public void onClickLoader3(View v) {
+    TestRemoteable test = new TestRemoteable(dFE);
+    long result = test.cpuLoader3((int) System.currentTimeMillis());
+    Toast.makeText(StartExecution.this, "Result: " + result, Toast.LENGTH_SHORT).show();
   }
 
   public void onClickJni1(View v) {

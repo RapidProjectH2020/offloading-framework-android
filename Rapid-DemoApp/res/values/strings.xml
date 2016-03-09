@@ -21,9 +21,9 @@
 
     <string name="delimitator">------------------------------------------</string>
     <string name="app_name">RAPID Offloading Framework</string>
-    <string name="cpuLoader1">CPU Loader #1</string>
-    <string name="cpuLoader2">CPU Loader #2</string>
-    <string name="cpuLoader3">CPU Loader #3</string>
+    <string name="cpuLoader1">Test 1</string>
+    <string name="cpuLoader2">Test 2</string>
+    <string name="cpuLoader3">Test 3</string>
     <string name="scenario1">Scenario 1</string>
     <string name="scenario2">Scenario 2</string>
     <string name="jni1">JNI test</string>

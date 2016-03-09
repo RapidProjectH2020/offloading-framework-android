@@ -15,7 +15,7 @@
     You should have received a copy of the GNU Lesser General Public
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- -->
+-->
 
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/scrollView1"
@@ -23,46 +23,35 @@
     android:layout_height="wrap_content"
     android:layout_weight="1" >
 
-    <TableLayout
+    <LinearLayout
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical" >
 
-        <TableRow android:paddingBottom="15dp"
-            android:paddingTop="10dp" >
+        <LinearLayout
+            android:id="@+id/layoutNrClones"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingTop="5dp"
+            android:visibility="gone"
+             >
 
             <TextView
-                android:layout_width="fill_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="0"
-                android:gravity="center_vertical"
+                android:layout_weight="2"
+                android:gravity="right"
                 android:text="@string/nrClones" />
 
             <Spinner
                 android:id="@+id/spinnerNrClones"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="0"
+                android:layout_weight="1"
                 android:entries="@array/nrClonesValues" />
-        </TableRow>
+        </LinearLayout>
 
-        <!--
-    <TextView android:id="@+id/batteryLevel" android:layout_width="fill_parent"
-		android:layout_height="wrap_content" android:gravity="center_vertical"
-		android:text="Single Methods" />
-
-	<Button android:id="@+id/cpuLoader1" android:text="@string/cpuLoader1"
-		android:layout_width="wrap_content" android:layout_height="wrap_content"
-		android:onClick="onClickLoader1" />
-
-	<Button android:id="@+id/cpuLoader2" android:text="@string/cpuLoader2"
-		android:layout_width="wrap_content" android:layout_height="wrap_content"
-		android:onClick="onClickLoader2" />
-
-	<Button android:id="@+id/cpuLoader3" android:text="@string/cpuLoader3"
-		android:layout_width="wrap_content" android:layout_height="wrap_content"
-		android:onClick="onClickLoader3" />
-        -->
         <!--
 	<TableRow>
 	<TextView android:layout_width="fill_parent"
@@ -100,8 +89,8 @@
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
-            android:text="@string/chooseOptimization"
             android:paddingTop="2dp"
+            android:text="@string/chooseOptimization"
             android:textColor="@android:color/holo_blue_dark" />
 
         <RadioGroup
@@ -126,7 +115,7 @@
                 android:enabled="false"
                 android:onClick="onRadioExecLocationChecked"
                 android:text="@string/radioButtonStaticRemote" />
-            
+
             <RadioButton
                 android:id="@+id/radio_exec_time"
                 android:layout_width="wrap_content"
@@ -174,17 +163,10 @@
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
-            android:text="@string/chooseApplication"
             android:paddingBottom="5dp"
             android:paddingTop="2dp"
+            android:text="@string/chooseApplication"
             android:textColor="@android:color/holo_blue_dark" />
-
-        <Button
-            android:id="@+id/virsuScanning"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:onClick="onClickVirusScanning"
-            android:text="@string/virusScanning" />
 
         <!--
 	<Button android:id="@+id/benchmark2" android:text="@string/benchmark2"
@@ -223,48 +205,92 @@
         </TableRow>
         -->
 
-        <TableRow>
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
+
+            <Button
+                android:id="@+id/cpuLoader1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:onClick="onClickLoader1"
+                android:text="@string/cpuLoader1" />
+
+            <Button
+                android:id="@+id/cpuLoader2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:onClick="onClickLoader2"
+                android:text="@string/cpuLoader2" />
+
+            <Button
+                android:id="@+id/cpuLoader3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:onClick="onClickLoader3"
+                android:text="@string/cpuLoader3" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
 
             <TextView
-                android:layout_width="fill_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="0"
-                android:gravity="center_vertical"
+                android:layout_weight="1"
+                android:gravity="right"
                 android:text="@string/nrQueens" />
 
             <Spinner
                 android:id="@+id/spinnerNrQueens"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="2"
+                android:layout_weight="3"
                 android:entries="@array/nrQueensValues" />
 
             <Button
                 android:id="@+id/eightQueens"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="3"
+                android:layout_weight="9"
                 android:onClick="onClickQueenSolver"
                 android:text="@string/eightQueens" />
-        </TableRow>
+        </LinearLayout>
+        <!--
+         <TextView android:id="@+id/batteryLevel" android:layout_width="fill_parent"
+		android:layout_height="wrap_content" android:gravity="center_vertical"
+		android:text="Single Methods" />
+        -->
 
         <Button
             android:id="@+id/jni1"
-            android:layout_width="wrap_content"
+            android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:onClick="onClickJni1"
             android:text="@string/jni1" />
-        
+
+        <Button
+            android:id="@+id/virsuScanning"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:onClick="onClickVirusScanning"
+            android:text="@string/virusScanning" />
+
         <TextView
             android:id="@+id/textVmConnectionStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_vertical"
             android:paddingTop="10dp"
-            android:textSize="18sp"
             android:text="@string/textVmDisconnected"
-            android:textColor="@android:color/holo_red_dark" />
+            android:textColor="@android:color/holo_red_dark"
+            android:textSize="18sp" />
 
         <!--
         <TextView
@@ -325,6 +351,6 @@
             android:onClick="onTestReceiveBytes"
             android:text="@string/testReceiveBytes" />
         -->
-    </TableLayout>
+    </LinearLayout>
 
 </ScrollView>
