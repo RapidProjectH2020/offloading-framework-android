@@ -54,6 +54,8 @@ Just following the simple steps described below you should be able to run the de
 * We built a graphical interface to easily interact with the application and with the framework.
 * Try to run the simple built-in applications and check the Android logcat for errors or for info messages.
 
+![](https://dl.dropboxusercontent.com/u/7728796/rapid1.png)
+![](https://dl.dropboxusercontent.com/u/7728796/rapid2.png)
 
 ## Full setup with Rapid infrastructure
 **TODO**
