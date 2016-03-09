@@ -48,17 +48,17 @@
         android:paddingBottom="15dp" >
 
         <RadioButton
-            android:id="@+id/radioUseRapidYes"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/useRapidYes" />
-
-        <RadioButton
             android:id="@+id/radioUseRapidNo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:checked="true"
             android:text="@string/useRapidNo" />
+        
+        <RadioButton
+            android:id="@+id/radioUseRapidYes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/useRapidYes" />
     </RadioGroup>
 
     <View style="@style/Divider" />
