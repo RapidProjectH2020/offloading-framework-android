@@ -24,7 +24,8 @@ Just following the simple steps described below you should be able to run the de
 * A computer running any operating system able to run a virtualization software such as [VirtualBox](https://www.virtualbox.org/).
 * An Android phone running Android 4.1+ (recommended).
 * A WiFi router where both computer and phone are connected.
-    * The phone should be able to ping the computer.
+    * The phone should be able to ping the computer, as shown in the figure below.
+![](https://dl.dropboxusercontent.com/u/7728796/img-quick-setup.png "An example of a simple setup.")
 
 ### Download the components
 * Download the following projects from github and build them using Eclipse.
@@ -54,8 +55,8 @@ Just following the simple steps described below you should be able to run the de
 * We built a graphical interface to easily interact with the application and with the framework.
 * Try to run the simple built-in applications and check the Android logcat for errors or for info messages.
 
-![](https://dl.dropboxusercontent.com/u/7728796/rapid1.png)
-![](https://dl.dropboxusercontent.com/u/7728796/rapid2.png)
+![](https://dl.dropboxusercontent.com/u/7728796/rapid1.png "The first activity used to insert the IP of the VM and start the connection.")
+![](https://dl.dropboxusercontent.com/u/7728796/rapid2.png "The activity with some testing applications ready to run.")
 
 ## Full setup with Rapid infrastructure
 **TODO**
