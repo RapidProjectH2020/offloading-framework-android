@@ -29,7 +29,7 @@ Just following the simple steps described below you should be able to run the de
 
 ### Download the components
 * Download the following projects from github and build them using Eclipse.
-* **AccelerationServer** is and Android application and is the component that will run on the *clone*. It will be responsible for executing the offloaded code.
+* **AccelerationServer** is an Android application and is the component that will run on the *clone*. It will be responsible for executing the offloaded code.
 * **AccelerationClient** is an *Android library* that should be included by the applications that want to perform code offloading. It should also be included by the Acceleration Server.
     * This component should include the [RapidCommon](https://github.com/RapidProjectH2020/rapid-common) project.
 * **Rapid-DemoApp** includes some demo apps to demonstrate how to use the offloading framework.
