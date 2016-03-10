@@ -32,7 +32,7 @@ Just following the simple steps described below you should be able to run the de
 * **AccelerationServer** is an Android application and is the component that will run on the *clone*. It will be responsible for executing the offloaded code.
 * **AccelerationClient** is an *Android library* that should be included by the applications that want to perform code offloading. It should also be included by the Acceleration Server.
     * This component should include the [RapidCommon](https://github.com/RapidProjectH2020/rapid-common) project.
-* **Rapid-DemoApp** includes some demo apps to demonstrate how to use the offloading framework.
+* **Rapid-DemoApp** implements some demo apps to demonstrate how to use the offloading framework. It includes the AccelerationClient android library.
 
 ### Download and deploy Android-x86
 * Download the Android-x86 iso from [here](http://www.android-x86.org/) (4.0+ is recommended).
