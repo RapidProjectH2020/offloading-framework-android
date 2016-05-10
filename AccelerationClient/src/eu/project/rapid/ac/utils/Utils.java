@@ -1,19 +1,17 @@
 /*******************************************************************************
  * Copyright (C) 2015, 2016 RAPID EU Project
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify it under the terms of the
+ * GNU Lesser General Public License as published by the Free Software Foundation; either version
+ * 2.1 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * You should have received a copy of the GNU Lesser General Public License along with this library;
+ * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *******************************************************************************/
 package eu.project.rapid.ac.utils;
 
@@ -24,6 +22,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 
 import android.content.Context;
@@ -33,6 +33,16 @@ public class Utils {
 
   private static final String TAG = "RapidUtils";
   private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
+  private final static Map<Character, Integer> hexToDec = new HashMap<Character, Integer>();
+
+  static {
+    hexToDec.put('A', 10);
+    hexToDec.put('B', 11);
+    hexToDec.put('C', 12);
+    hexToDec.put('D', 13);
+    hexToDec.put('E', 14);
+    hexToDec.put('F', 15);
+  }
 
   public static String bytesToHex(byte[] bytes) {
 
@@ -45,6 +55,28 @@ public class Utils {
     return new String(hexChars);
   }
 
+  public static byte[] hexToBytes(String hexString) {
+    byte[] bytes = new byte[hexString.length() / 2];
+
+    for (int i = 0; i < hexString.length(); i += 2) {
+      char c1 = hexString.charAt(i);
+      char c2 = hexString.charAt(i + 1);
+
+      int n1 = Character.getNumericValue(c1);
+      if (n1 < 0) {
+        n1 = hexToDec.get(c1);
+      }
+
+      int n2 = Character.getNumericValue(c2);
+      if (n2 < 0) {
+        n2 = hexToDec.get(c2);
+      }
+
+      bytes[i / 2] = (byte) (n1 * 16 + n2);
+    }
+
+    return bytes;
+  }
 
   /**
    * An empty file will be created automatically on the clone by Acceleration-Server. The presence

@@ -1,19 +1,17 @@
 /*******************************************************************************
  * Copyright (C) 2015, 2016 RAPID EU Project
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify it under the terms of the
+ * GNU Lesser General Public License as published by the Free Software Foundation; either version
+ * 2.1 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * You should have received a copy of the GNU Lesser General Public License along with this library;
+ * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *******************************************************************************/
 package eu.project.rapid.ac;
 
@@ -82,10 +80,11 @@ import eu.project.rapid.common.Clone;
 import eu.project.rapid.common.Configuration;
 import eu.project.rapid.common.RapidMessages;
 import eu.project.rapid.common.RapidUtils;
+import eu.project.rapid.gvirtusfe.GVirtusFrontend;
 
 /**
  * The interface to the framework for the client program - controls DSE, profilers, communicates
- * with remote server
+ * with remote server.
  * 
  */
 
@@ -124,6 +123,8 @@ public class DFE {
   private DSE mDSE;
   private DeviceProfiler mDevProfiler;
   private NetworkProfiler netProfiler;
+  // GVirtuS frontend is responsible for running the CUDA code.
+  private GVirtusFrontend gVirtusFrontend;
 
   private static Clone sClone;
   private static Socket mSocket;
@@ -327,6 +328,13 @@ public class DFE {
       if (onLine) {
         Log.i(TAG, "The communication type established with the clone is: " + commType);
 
+        if (config.getGvirtusIp() == null) {
+          // If gvirtusIp is null, then gvirtus backend is running on the physical machine where
+          // the VM is running.
+          // Try to find a way here to get the ip address of the physical machine.
+          // config.setGvirtusIp(TODO: ip address of the physical machine where the VM is running);
+        }
+
         publishProgress("Registering the APK with the clone...");
         RapidUtils.sendAnimationMsg(config, RapidMessages.AC_SEND_APK);
         sendApk();
@@ -347,6 +355,11 @@ public class DFE {
         } catch (ClassCastException e) {
           Log.i(TAG, "This class doesn't implement callback methods.");
         }
+      }
+
+      if (config.getGvirtusIp() != null) {
+        // Create a gvirtus frontend object that is responsible for executing the CUDA code.
+        gVirtusFrontend = new GVirtusFrontend(config.getGvirtusIp(), config.getGvirtusPort());
       }
 
       return null;
@@ -963,7 +976,7 @@ public class DFE {
 
       try {
         Long startTime = System.nanoTime();
-        mOutStream.write(RapidMessages.EXECUTE);
+        mOutStream.write(RapidMessages.AC_OFFLOAD_REQ_AS);
         RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REMOTE_SEND_DATA);
         result = sendAndExecute(m, pValues, o, mObjInStream, mObjOutStream);
 
@@ -1102,7 +1115,7 @@ public class DFE {
       File apkFile = new File(apkName);
       Log.d(TAG, "Apk name - " + apkName);
 
-      mOutStream.write(RapidMessages.APK_REGISTER);
+      mOutStream.write(RapidMessages.AC_REGISTER_AS);
       // Send apkName and apkLength to clone.
       // The clone will compare these information with what he has and tell
       // if he doesn't have the apk or this one differs in size.
@@ -1111,7 +1124,7 @@ public class DFE {
       mObjOutStream.flush();
       int response = mInStream.read();
 
-      if (response == RapidMessages.APK_REQUEST) {
+      if (response == RapidMessages.AS_APP_REQ_AC) {
         // Send the APK file if needed
 
         FileInputStream fin = new FileInputStream(apkFile);
@@ -1219,6 +1232,14 @@ public class DFE {
     this.nrClones = nrClones;
   }
 
+  public GVirtusFrontend getGvirtusFrontend() {
+    return gVirtusFrontend;
+  }
+
+  public void setGvirtusFrontend(GVirtusFrontend gVirtusFrontend) {
+    this.gVirtusFrontend = gVirtusFrontend;
+  }
+
   public Configuration getConfig() {
     return config;
   }
@@ -1235,7 +1256,7 @@ public class DFE {
    * Used to measure the costs of connection with the clone when using different communication
    * types.
    * 
-   * @param givenCommType CLEAR, SSL, SSL_NO_REUSE, PubPrivKey
+   * @param givenCommType CLEAR, SSL
    * @param buffLogFile
    * @throws IOException
    */
