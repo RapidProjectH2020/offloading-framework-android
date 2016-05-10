@@ -27,6 +27,7 @@
     <string name="scenario1">Scenario 1</string>
     <string name="scenario2">Scenario 2</string>
     <string name="jni1">JNI test</string>
+    <string name="gvirtus">GVirtuS test</string>
     <string name="benchmark1">Benchmark Bundle 1</string>
     <string name="benchmark2">Benchmark Bundle 2</string>
     <string name="allBundles">All Bundles</string>

@@ -274,6 +274,13 @@
             android:layout_height="wrap_content"
             android:onClick="onClickJni1"
             android:text="@string/jni1" />
+        
+        <Button
+            android:id="@+id/gvirtus"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:onClick="onClickGvirtusDemo"
+            android:text="@string/gvirtus" />
 
         <Button
             android:id="@+id/virsuScanning"

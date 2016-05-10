@@ -15,6 +15,8 @@
  *******************************************************************************/
 package eu.project.rapid.demo;
 
+import java.io.IOException;
+
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.graphics.Color;
@@ -170,7 +172,7 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
   }
 
   private class VirusTask extends AsyncTask<Void, Void, Integer> {
-    // Show a spinning dialog while solving the puzzle
+    // Show a spinning dialog while scanning for viruses
     ProgressDialog pd = ProgressDialog.show(StartExecution.this, "Working...",
         "Scanning for viruses...", true, false);
 
@@ -236,6 +238,44 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
 
     @Override
     protected void onPostExecute(Integer result) {
+      Log.i(TAG, "Finished execution");
+      if (pd != null) {
+        pd.dismiss();
+      }
+    }
+  }
+
+  public void onClickGvirtusDemo(View v) {
+    new GvirtusCaller().execute();
+  }
+
+  private class GvirtusCaller extends AsyncTask<Void, Void, Void> {
+    // Show a spinning dialog while running the GVirtuS demo
+    ProgressDialog pd = ProgressDialog.show(StartExecution.this, "Working...",
+        "Running the GVirtuS demo...", true, false);
+
+    @Override
+    protected Void doInBackground(Void... params) {
+      int nrTests = 1;
+
+      GVirtusDemo gvirtusDemo = new GVirtusDemo(dFE);
+      for (int i = 0; i < nrTests; i++) {
+        // Choosing a random number of queens for testing purposes.
+        // nrQueens = 4 + new Random().nextInt(3);
+
+        Log.i(TAG, "Started running the GVirtuS demo.");
+        try {
+          gvirtusDemo.deviceQuery();
+          Log.i(TAG, "Correctly executed the GVirtuS demo.");
+        } catch (IOException e) {
+          Log.e(TAG, "Error while running the GVirtuS demo: " + e);
+        }
+      }
+      return null;
+    }
+
+    @Override
+    protected void onPostExecute(Void result) {
       Log.i(TAG, "Finished execution");
       if (pd != null) {
         pd.dismiss();
