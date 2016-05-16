@@ -260,17 +260,25 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
 
       GVirtusDemo gvirtusDemo = new GVirtusDemo(dFE);
       for (int i = 0; i < nrTests; i++) {
-        // Choosing a random number of queens for testing purposes.
-        // nrQueens = 4 + new Random().nextInt(3);
-
-        Log.i(TAG, "Started running the GVirtuS demo.");
+        Log.i(TAG, "------------ Started running the GVirtuS deviceQuery demo.");
         try {
           gvirtusDemo.deviceQuery();
-          Log.i(TAG, "Correctly executed the GVirtuS demo.");
+          Log.i(TAG, "Correctly executed the GVirtuS deviceQuery demo.");
         } catch (IOException e) {
-          Log.e(TAG, "Error while running the GVirtuS demo: " + e);
+          Log.e(TAG, "Error while running the GVirtuS deviceQuery demo: " + e);
         }
       }
+
+      // for (int i = 0; i < nrTests; i++) {
+      // Log.i(TAG, "------------ Started running the GVirtuS matrixMul demo.");
+      // try {
+      // gvirtusDemo.matrixMul();
+      // Log.i(TAG, "Correctly executed the GVirtuS matrixMul demo.");
+      // } catch (IOException e) {
+      // Log.e(TAG, "Error while running the GVirtuS matrixMul demo: " + e);
+      // }
+      // }
+
       return null;
     }
 
