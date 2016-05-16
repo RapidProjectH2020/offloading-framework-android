@@ -1244,6 +1244,10 @@ public class DFE {
     return config;
   }
 
+  public Context getContext() {
+    return mContext;
+  }
+
   public double getLocalDataFraction() {
     return localDataFraction;
   }

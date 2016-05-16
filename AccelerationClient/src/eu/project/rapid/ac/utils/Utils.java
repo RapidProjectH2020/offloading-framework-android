@@ -15,12 +15,14 @@
  *******************************************************************************/
 package eu.project.rapid.ac.utils;
 
+import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.HashMap;
 import java.util.Map;
@@ -52,7 +54,7 @@ public class Utils {
       hexChars[j * 2] = hexArray[v >>> 4];
       hexChars[j * 2 + 1] = hexArray[v & 0x0F];
     }
-    return new String(hexChars);
+    return new String(hexChars).trim();
   }
 
   public static byte[] hexToBytes(String hexString) {
@@ -330,5 +332,20 @@ public class Utils {
         exec.destroy();
       exec = null;
     }
+  }
+
+  public static String readAssetFileAsString(Context context, String fileName) throws IOException {
+    StringBuilder buf = new StringBuilder();
+    InputStream fileIs = context.getAssets().open(fileName);
+    BufferedReader in = new BufferedReader(new InputStreamReader(fileIs));
+    String str;
+
+    while ((str = in.readLine()) != null) {
+      buf.append(str);
+    }
+
+    in.close();
+
+    return buf.toString();
   }
 }

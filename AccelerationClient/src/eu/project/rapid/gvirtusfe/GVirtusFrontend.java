@@ -30,11 +30,11 @@ public final class GVirtusFrontend {
 
     this.serverIpAddress = url;
     this.port = port;
+
     try {
       this.socket = new Socket(this.serverIpAddress, this.port);
       this.outputStream = new DataOutputStream(this.socket.getOutputStream());
       this.in = new DataInputStream(this.socket.getInputStream());
-
     } catch (IOException ex) {
       Logger.getLogger(GVirtusFrontend.class.getName()).log(Level.SEVERE, null, ex);
     }
