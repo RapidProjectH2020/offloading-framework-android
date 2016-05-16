@@ -368,7 +368,7 @@ public class ClientHandler {
           waitForThreadsToBeReady();
 
           // Give the command to register the app first
-          sendCommandToAllThreads(RapidMessages.APK_REGISTER);
+          sendCommandToAllThreads(RapidMessages.AC_REGISTER_AS);
 
           // Wait again for the threads to be ready
           waitForThreadsToBeReady();
@@ -380,7 +380,7 @@ public class ClientHandler {
            * Wake up the server helper threads and tell them to send the object to execute, the
            * method, parameter types and parameter values
            */
-          sendCommandToAllThreads(RapidMessages.EXECUTE);
+          sendCommandToAllThreads(RapidMessages.AC_OFFLOAD_REQ_AS);
         } else {
           Log.i(TAG, "Could not allocate other clones, doing only my part of the job.");
         }
@@ -534,7 +534,7 @@ public class ClientHandler {
           Log.d(TAG, "Request - " + request);
 
           switch (request) {
-            case RapidMessages.EXECUTE:
+            case RapidMessages.AC_OFFLOAD_REQ_AS:
 
               // Start profiling on remote side
               DeviceProfiler devProfiler = DeviceProfiler.getInstance(mContext);
@@ -573,7 +573,7 @@ public class ClientHandler {
               mOs.write(RapidMessages.PONG);
               break;
 
-            case RapidMessages.APK_REGISTER:
+            case RapidMessages.AC_REGISTER_AS:
               Log.d(TAG, "Registering apk");
               appName = (String) mObjIs.readObject();
               Log.i(TAG, "apk name: " + appName);
@@ -582,10 +582,10 @@ public class ClientHandler {
               Log.d(TAG, "Registering apk: " + appName + " of size: " + appLength + " bytes");
               if (apkPresent(apkFilePath, appLength)) {
                 Log.d(TAG, "APK present");
-                mOs.write(RapidMessages.APK_PRESENT);
+                mOs.write(RapidMessages.AS_APP_PRESENT_AC);
               } else {
                 Log.d(TAG, "request APK");
-                mOs.write(RapidMessages.APK_REQUEST);
+                mOs.write(RapidMessages.AS_APP_REQ_AC);
                 // Receive the apk file from the client
                 receiveApk(mObjIs, apkFilePath);
 
@@ -726,7 +726,7 @@ public class ClientHandler {
       ois = new ObjectInputStream(is);
 
       // Ask for more clones
-      os.write(RapidMessages.NEED_CLONE_HELPERS);
+      os.write(RapidMessages.PARALLEL_REQ);
       oos.writeInt(config.getCloneId());
       oos.writeInt(numberOfCloneHelpers);
       oos.flush();

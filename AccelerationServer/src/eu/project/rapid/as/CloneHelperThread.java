@@ -112,15 +112,15 @@ public class CloneHelperThread extends Thread {
             pingOtherServer();
             break;
 
-          case RapidMessages.APK_REGISTER:
-            mOutStream.write(RapidMessages.APK_REGISTER);
+          case RapidMessages.AC_REGISTER_AS:
+            mOutStream.write(RapidMessages.AC_REGISTER_AS);
             mObjOutStream.writeObject(ClientHandler.appName);
             mObjOutStream.writeInt(ClientHandler.appLength);
             mObjOutStream.flush();
 
             int response = mInStream.read();
 
-            if (response == RapidMessages.APK_REQUEST) {
+            if (response == RapidMessages.AS_APP_REQ_AC) {
               // Send the APK file if needed
               Log.d(TAG, "Sending apk to the clone " + clone.getIp());
 
@@ -139,15 +139,15 @@ public class CloneHelperThread extends Thread {
               }
               mObjOutStream.flush();
               bis.close();
-            } else if (response == RapidMessages.APK_PRESENT) {
+            } else if (response == RapidMessages.AS_APP_PRESENT_AC) {
               Log.d(TAG, "Application already registered on clone " + clone.getIp());
             }
             break;
 
-          case RapidMessages.EXECUTE:
+          case RapidMessages.AC_OFFLOAD_REQ_AS:
             Log.d(TAG, "Asking clone " + clone.getIp() + " to parallelize the execution");
 
-            mOutStream.write(RapidMessages.EXECUTE);
+            mOutStream.write(RapidMessages.AC_OFFLOAD_REQ_AS);
 
             // Send the number of clones needed.
             // Since this is a helper clone, only one clone should be requested.
