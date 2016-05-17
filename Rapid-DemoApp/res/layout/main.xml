@@ -375,7 +375,6 @@
             android:layout_margin="5dp"
             android:background="@android:color/white"
             android:padding="5dp"
-            android:text="Sokol Kosta"
             android:textColor="@android:color/holo_green_dark" />
     </LinearLayout>
 
