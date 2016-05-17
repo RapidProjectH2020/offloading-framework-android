@@ -6,27 +6,22 @@ package eu.project.rapid.gvirtusfe;
 
 import java.io.IOException;
 
-import eu.project.rapid.ac.DFE;
-
 /**
  *
  * @author cferraro
  */
 public class CudaDr_device {
-  private GVirtusFrontend gvfe;
 
-  public CudaDr_device(DFE dfe) {
-    this.gvfe = dfe.getGvirtusFrontend();
-  }
+  public CudaDr_device() {}
 
-  public int cuDeviceGet(Result res, int devID) throws IOException {
+  public int cuDeviceGet(Frontend fe, Result res, int devID) throws IOException {
 
     Buffer b = new Buffer();
     b.AddPointer(0);
     b.AddInt(devID);
     String outputbuffer = "";
     StringBuilder output = new StringBuilder();
-    gvfe.Execute("cuDeviceGet", b, res);
+    fe.Execute("cuDeviceGet", b, res);
     int sizeType = res.getInput_stream().readByte();
     for (int i = 0; i < 7; i++)
       res.getInput_stream().readByte();
@@ -50,7 +45,7 @@ public class CudaDr_device {
   }
 
 
-  public String cuDeviceGetName(Result res, int len, int dev) throws IOException {
+  public String cuDeviceGetName(Frontend fe, Result res, int len, int dev) throws IOException {
 
     Buffer b = new Buffer();
     b.AddByte(1);
@@ -65,7 +60,7 @@ public class CudaDr_device {
 
     String outbuffer = "";
     StringBuilder output = new StringBuilder();
-    gvfe.Execute("cuDeviceGetName", b, res);
+    fe.Execute("cuDeviceGetName", b, res);
     int sizeType = res.getInput_stream().readByte();
 
     for (int i = 0; i < 7; i++)
@@ -90,12 +85,12 @@ public class CudaDr_device {
   }
 
 
-  public int cuDeviceGetCount(Result res) throws IOException {
+  public int cuDeviceGetCount(Frontend fe, Result res) throws IOException {
 
     Buffer b = new Buffer();
     b.AddPointer(0);
     String outputbuffer = "";
-    gvfe.Execute("cuDeviceGetCount", b, res);
+    fe.Execute("cuDeviceGetCount", b, res);
     int sizeType = res.getInput_stream().readByte();
     for (int i = 0; i < 7; i++)
       res.getInput_stream().readByte();
@@ -119,14 +114,14 @@ public class CudaDr_device {
 
   }
 
-  public int[] cuDeviceComputeCapability(Result res, int device) throws IOException {
+  public int[] cuDeviceComputeCapability(Frontend fe, Result res, int device) throws IOException {
 
     Buffer b = new Buffer();
     b.AddPointer(0);
     b.AddPointer(0);
     b.AddInt(device);
     String outputbuffer = "";
-    gvfe.Execute("cuDeviceComputeCapability", b, res);
+    fe.Execute("cuDeviceComputeCapability", b, res);
     int sizeType = res.getInput_stream().readByte();
     for (int i = 0; i < 7; i++)
       res.getInput_stream().readByte();
@@ -173,13 +168,14 @@ public class CudaDr_device {
 
   }
 
-  public int cuDeviceGetAttribute(Result res, int attribute, int device) throws IOException {
+  public int cuDeviceGetAttribute(Frontend fe, Result res, int attribute, int device)
+      throws IOException {
     Buffer b = new Buffer();
     b.AddPointer(0);
     b.AddInt(attribute);
     b.AddInt(device);
     String outputbuffer = "";
-    gvfe.Execute("cuDeviceGetAttribute", b, res);
+    fe.Execute("cuDeviceGetAttribute", b, res);
     int sizeType = res.getInput_stream().readByte();
     for (int i = 0; i < 7; i++)
       res.getInput_stream().readByte();
@@ -203,14 +199,14 @@ public class CudaDr_device {
 
   }
 
-  public long cuDeviceTotalMem(Result res, int dev) throws IOException {
+  public long cuDeviceTotalMem(Frontend fe, Result res, int dev) throws IOException {
 
     Buffer b = new Buffer();
     b.AddByte(8);
     for (int i = 0; i < 16; i++)
       b.AddByte(0);
     b.AddInt(dev);
-    gvfe.Execute("cuDeviceTotalMem", b, res);
+    fe.Execute("cuDeviceTotalMem", b, res);
     for (int i = 0; i < 8; i++)
       res.getInput_stream().readByte();
     long x = getLong(res);

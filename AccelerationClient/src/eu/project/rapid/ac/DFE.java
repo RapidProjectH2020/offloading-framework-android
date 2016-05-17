@@ -80,7 +80,7 @@ import eu.project.rapid.common.Clone;
 import eu.project.rapid.common.Configuration;
 import eu.project.rapid.common.RapidMessages;
 import eu.project.rapid.common.RapidUtils;
-import eu.project.rapid.gvirtusfe.GVirtusFrontend;
+import eu.project.rapid.gvirtusfe.Frontend;
 
 /**
  * The interface to the framework for the client program - controls DSE, profilers, communicates
@@ -124,7 +124,7 @@ public class DFE {
   private DeviceProfiler mDevProfiler;
   private NetworkProfiler netProfiler;
   // GVirtuS frontend is responsible for running the CUDA code.
-  private GVirtusFrontend gVirtusFrontend;
+  private Frontend gVirtusFrontend;
 
   private static Clone sClone;
   private static Socket mSocket;
@@ -359,7 +359,7 @@ public class DFE {
 
       if (config.getGvirtusIp() != null) {
         // Create a gvirtus frontend object that is responsible for executing the CUDA code.
-        gVirtusFrontend = new GVirtusFrontend(config.getGvirtusIp(), config.getGvirtusPort());
+        gVirtusFrontend = new Frontend(config.getGvirtusIp(), config.getGvirtusPort());
       }
 
       return null;
@@ -1232,11 +1232,11 @@ public class DFE {
     this.nrClones = nrClones;
   }
 
-  public GVirtusFrontend getGvirtusFrontend() {
+  public Frontend getGvirtusFrontend() {
     return gVirtusFrontend;
   }
 
-  public void setGvirtusFrontend(GVirtusFrontend gVirtusFrontend) {
+  public void setGvirtusFrontend(Frontend gVirtusFrontend) {
     this.gVirtusFrontend = gVirtusFrontend;
   }
 

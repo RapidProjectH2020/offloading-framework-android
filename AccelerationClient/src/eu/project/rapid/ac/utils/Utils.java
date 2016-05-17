@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
@@ -337,7 +338,7 @@ public class Utils {
   public static String readAssetFileAsString(Context context, String fileName) throws IOException {
     StringBuilder buf = new StringBuilder();
     InputStream fileIs = context.getAssets().open(fileName);
-    BufferedReader in = new BufferedReader(new InputStreamReader(fileIs));
+    BufferedReader in = new BufferedReader(new InputStreamReader(fileIs, Charset.defaultCharset()));
     String str;
 
     while ((str = in.readLine()) != null) {

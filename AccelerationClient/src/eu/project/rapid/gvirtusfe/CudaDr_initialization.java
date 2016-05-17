@@ -6,24 +6,18 @@ package eu.project.rapid.gvirtusfe;
 
 import java.io.IOException;
 
-import eu.project.rapid.ac.DFE;
-
 /**
  *
  * @author cferraro
  */
 public class CudaDr_initialization {
 
-  GVirtusFrontend gvfe;
+  public CudaDr_initialization() {}
 
-  public CudaDr_initialization(DFE dfe) {
-    this.gvfe = dfe.getGvirtusFrontend();
-  }
-
-  public int cuInit(Result res, int flags) throws IOException {
+  public int cuInit(Frontend fe, Result res, int flags) throws IOException {
     Buffer b = new Buffer();
     b.AddInt(flags);
-    gvfe.Execute("cuInit", b, res);
+    fe.Execute("cuInit", b, res);
     return 0;
   }
 

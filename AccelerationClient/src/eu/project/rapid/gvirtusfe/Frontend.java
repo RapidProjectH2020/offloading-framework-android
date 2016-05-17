@@ -14,29 +14,27 @@ import java.util.logging.Logger;
 import eu.project.rapid.ac.utils.Utils;
 
 /**
- * This is the frontend of the GVirtuS project, which is responsible for executing CUDA code.<br>
- * FIXME: Sokol, should run the networking operations on background threads.
  *
  * @author cferraro
  */
-public final class GVirtusFrontend {
+public final class Frontend {
   String serverIpAddress;
   int port;
   Socket socket, clientSocket;
   DataOutputStream outputStream, clientOutputStream;
   DataInputStream in, clientIn;
 
-  public GVirtusFrontend(String url, int port) {
+  public Frontend(String url, int port) {
 
     this.serverIpAddress = url;
     this.port = port;
-
     try {
       this.socket = new Socket(this.serverIpAddress, this.port);
       this.outputStream = new DataOutputStream(this.socket.getOutputStream());
       this.in = new DataInputStream(this.socket.getInputStream());
+
     } catch (IOException ex) {
-      Logger.getLogger(GVirtusFrontend.class.getName()).log(Level.SEVERE, null, ex);
+      Logger.getLogger(Frontend.class.getName()).log(Level.SEVERE, null, ex);
     }
   }
 
@@ -51,7 +49,6 @@ public final class GVirtusFrontend {
       this.outputStream.write(bits[i] & 0xFF);
     }
 
-    // Sokol: DatatypeConverter does not exist in Android.
     // byte[] bytes2 = DatatypeConverter.parseHexBinary(input_buffer.GetString());
     byte[] bytes2 = Utils.hexToBytes(input_buffer.GetString());
 
@@ -63,7 +60,6 @@ public final class GVirtusFrontend {
     this.in.readByte();
     this.in.readByte();
     res.setExit_code(message);
-    System.out.println("Exit code of last function is: " + message);
     int sizes = (int) this.in.readByte();
     res.setSizeBuffer(sizes);
     for (int i = 0; i < 7; i++)

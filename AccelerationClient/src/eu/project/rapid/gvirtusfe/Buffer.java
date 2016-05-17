@@ -29,8 +29,8 @@ public class Buffer {
   public void AddPointerNull() {
     byte[] bites = {(byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0};
     // Sokol: DatatypeConverter does not exist in Android.
-    mpBuffer += Utils.bytesToHex(bites);
     // mpBuffer += javax.xml.bind.DatatypeConverter.printHexBinary(bites);
+    mpBuffer += Utils.bytesToHex(bites);
     mLenght += Long.SIZE / 8;
     mBackOffset = mLenght;
   }
@@ -38,9 +38,7 @@ public class Buffer {
   public void Add(int item) {
     byte[] bites =
         {(byte) item, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0};
-    // Sokol: DatatypeConverter does not exist in Android.
     mpBuffer += Utils.bytesToHex(bites);
-    // mpBuffer += javax.xml.bind.DatatypeConverter.printHexBinary(bites);
     mLenght += Integer.SIZE / 8;
     mBackOffset = mLenght;
   }
@@ -48,18 +46,14 @@ public class Buffer {
   public void Add(long item) {
     byte[] bites =
         {(byte) item, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0, (byte) 0};
-    // Sokol: DatatypeConverter does not exist in Android.
     mpBuffer += Utils.bytesToHex(bites);
-    // mpBuffer += javax.xml.bind.DatatypeConverter.printHexBinary(bites);
     mLenght += Long.SIZE / 8;
     mBackOffset = mLenght;
   }
 
   public void Add(String item) {
-    // Sokol: DatatypeConverter does not exist in Android.
+    // Sokol
     // byte[] bites = DatatypeConverter.parseHexBinary(item);
-    // mpBuffer += javax.xml.bind.DatatypeConverter.printHexBinary(bites);
-
     byte[] bites = Utils.hexToBytes(item);
     mpBuffer += Utils.bytesToHex(bites);
     mLenght += bites.length;
@@ -80,7 +74,7 @@ public class Buffer {
       }
       mpBuffer += ss;
     }
-    // mpBuffer+=javax.xml.bind.DatatypeConverter.printHexBinary(bites);
+    // mpBuffer+=Utils.bytesToHex(bites);
     mLenght += Long.SIZE / 8 * item.length;
     mBackOffset = mLenght;
   }
@@ -99,10 +93,7 @@ public class Buffer {
 
   public void AddInt(int item) {
     byte[] bites = {(byte) item, (byte) 0, (byte) 0, (byte) 0};
-
-    // Sokol: DatatypeConverter does not exist in Android.
     mpBuffer += Utils.bytesToHex(bites);
-    // mpBuffer += javax.xml.bind.DatatypeConverter.printHexBinary(bites);
     mLenght += Integer.SIZE / 8;
     mBackOffset = mLenght;
   }
@@ -111,9 +102,7 @@ public class Buffer {
     byte[] bites = {(byte) item, (byte) 0, (byte) 0, (byte) 0};
     int size = (Integer.SIZE / 8);
     this.Add(size);
-    // Sokol: DatatypeConverter does not exist in Android.
     mpBuffer += Utils.bytesToHex(bites);
-    // mpBuffer += javax.xml.bind.DatatypeConverter.printHexBinary(bites);
     mLenght += size;
     mBackOffset = mLenght;
   }
@@ -134,10 +123,7 @@ public class Buffer {
       bites[i] = (byte) 0;
 
     }
-
-    // Sokol: DatatypeConverter does not exist in Android.
     mpBuffer += Utils.bytesToHex(bites);
-    // mpBuffer += javax.xml.bind.DatatypeConverter.printHexBinary(bites);
     mLenght += bites.length;
     mBackOffset = mLenght;
 
@@ -147,10 +133,7 @@ public class Buffer {
   void AddByte(int i) {
     byte[] bites = new byte[1];
     bites[0] = (byte) i;
-
-    // Sokol: DatatypeConverter does not exist in Android.
     mpBuffer += Utils.bytesToHex(bites);
-    // mpBuffer += javax.xml.bind.DatatypeConverter.printHexBinary(bites);
     mLenght += bites.length;
     mBackOffset = mLenght;
   }
