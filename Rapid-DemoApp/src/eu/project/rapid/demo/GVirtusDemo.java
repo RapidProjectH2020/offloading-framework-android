@@ -3,16 +3,21 @@ package eu.project.rapid.demo;
 
 import java.io.IOException;
 
+import android.util.Log;
 import eu.project.rapid.ac.DFE;
 import eu.project.rapid.ac.utils.Utils;
 import eu.project.rapid.gvirtusfe.CudaDr_context;
 import eu.project.rapid.gvirtusfe.CudaDr_device;
+import eu.project.rapid.gvirtusfe.CudaDr_execution;
 import eu.project.rapid.gvirtusfe.CudaDr_initialization;
+import eu.project.rapid.gvirtusfe.CudaDr_memory;
 import eu.project.rapid.gvirtusfe.CudaDr_module;
 import eu.project.rapid.gvirtusfe.CudaRt_device;
 import eu.project.rapid.gvirtusfe.CudaRt_device.cudaDeviceProp;
 import eu.project.rapid.gvirtusfe.CudaRt_memory;
+import eu.project.rapid.gvirtusfe.Frontend;
 import eu.project.rapid.gvirtusfe.Result;
+import eu.project.rapid.gvirtusfe.dim3;
 
 
 /**
@@ -28,13 +33,13 @@ public class GVirtusDemo {
 
   public GVirtusDemo(DFE dfe) {
     this.dfe = dfe;
-
-    try {
-      deviceQuery();
-    } catch (IOException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
+    //
+    // try {
+    // deviceQuery();
+    // } catch (IOException e) {
+    // // TODO Auto-generated catch block
+    // e.printStackTrace();
+    // }
 
     // matrixMul();
   }
@@ -51,27 +56,121 @@ public class GVirtusDemo {
   // return new String(encoded, encoding);
   // }
 
-  public void matrixMul() throws IOException {
+  //
+  // public void matrixMul() throws IOException {
+  //
+  // System.out.println("matrixMulDrv (Driver API)");
+  // Result res = new Result();
+  // int CUdevice = 0;
+  // CudaDr_device dr = new CudaDr_device(dfe);
+  // CudaDr_initialization dr_in = new CudaDr_initialization(dfe);
+  // dr_in.cuInit(res, 0);
+  // int device = dr.cuDeviceGet(res, CUdevice);
+  // int numberofdevice = dr.cuDeviceGetCount(res);
+  // int[] computeCapability = dr.cuDeviceComputeCapability(res, device);
+  // System.out.println("computeCapability is " + computeCapability[0] + "." +
+  // computeCapability[1]);
+  // int GPUoverlap = dr.cuDeviceGetAttribute(res, 15, device);
+  // System.out.println("GPUOverlap is " + GPUoverlap);
+  // String name = dr.cuDeviceGetName(res, 255, device);
+  // System.out.println("Device name is " + name);
+  // long totalMem = dr.cuDeviceTotalMem(res, device);
+  // System.out.println("Total mem is " + totalMem);
+  // CudaDr_context ctx = new CudaDr_context(dfe);
+  // String context = ctx.cuCtxCreate(res, 0, 0);
+  // System.out.println("Context pointer is " + context);
+  //
+  // // String p = "/src/gvirtusfe/matrixMul_kernel64.ptx";
+  // // Path currentRelativePath = Paths.get("");
+  // // String s = currentRelativePath.toAbsolutePath().toString();
+  // // String ptxSource = readFile(s + p, Charset.defaultCharset());
+  //
+  // // Sokol: ported in Android the code to read the ptx file.
+  // String ptxFile = "cuda-kernels/matrixMul_kernel64.ptx";
+  // String ptxSource = Utils.readAssetFileAsString(dfe.getContext(), ptxFile);
+  //
+  // int jitNumOptions = 3;
+  // int[] jitOptions = new int[jitNumOptions];
+  //
+  // // set up size of compilation log buffer
+  // jitOptions[0] = 4;// CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
+  // long jitLogBufferSize = 1024;
+  // long jitOptVals0 = jitLogBufferSize;
+  //
+  // // set up pointer to the compilation log buffer
+  // jitOptions[1] = 3;// CU_JIT_INFO_LOG_BUFFER;
+  //
+  // char[] jitLogBuffer = new char[(int) jitLogBufferSize];
+  // char[] jitOptVals1 = jitLogBuffer;
+  //
+  // // set up pointer to set the Maximum # of registers for a particular kernel
+  // jitOptions[2] = 0;// CU_JIT_MAX_REGISTERS;
+  // long jitRegCount = 32;
+  // long jitOptVals2 = jitRegCount;
+  //
+  // CudaDr_module dr_mod = new CudaDr_module(dfe);
+  //
+  // String cmodule = dr_mod.cuModuleLoadDataEx(res, ptxSource, jitNumOptions, jitOptions,
+  // jitOptVals0, jitOptVals1, jitOptVals2);
+  // String cfunction = dr_mod.cuModuleGetFunction(res, cmodule, "matrixMul_bs16_64bit");
+  // System.out.println("pointer cfunction " + cfunction);
+  //
+  // // allocate host memory for matrices A and B
+  // int block_size = 16;
+  // int WA = (4 * block_size); // Matrix A width
+  // int HA = (6 * block_size); // Matrix A height
+  // int WB = (4 * block_size); // Matrix B width
+  // int HB = WA; // Matrix B height
+  // int WC = WB; // Matrix C width
+  // int HC = HA; // Matrix C height
+  // int size_A = WA * HA;
+  //
+  // int mem_size_A = Float.SIZE / 8 * size_A;
+  // float[] h_A = new float[mem_size_A];
+  //
+  // int size_B = WB * HB;
+  // int mem_size_B = Float.SIZE / 8 * size_B;
+  // float[] h_B = new float[mem_size_B];
+  // float valB = 0.01f;
+  // h_A = constantInit(h_A, size_A, 1.0f);
+  // h_B = constantInit(h_B, size_B, valB);
+  //
+  // // // allocate device memory
+  // // CUdeviceptr d_A;
+  // // checkCudaErrors(cuMemAlloc(&d_A, mem_size_A));
+  // // CUdeviceptr d_B;
+  // // checkCudaErrors(cuMemAlloc(&d_B, mem_size_B));
+  // //
+  //
+  // ctx.cuCtxDestroy(res, context);
+  //
+  // }
+
+  public void matrixMul2() throws IOException {
 
     System.out.println("matrixMulDrv (Driver API)");
+    // Frontend FE = new Frontend(ip, port);
+
+    Frontend FE = dfe.getGvirtusFrontend();
     Result res = new Result();
     int CUdevice = 0;
-    CudaDr_device dr = new CudaDr_device(dfe);
-    CudaDr_initialization dr_in = new CudaDr_initialization(dfe);
-    dr_in.cuInit(res, 0);
-    int device = dr.cuDeviceGet(res, CUdevice);
-    int numberofdevice = dr.cuDeviceGetCount(res);
-    int[] computeCapability = dr.cuDeviceComputeCapability(res, device);
-    System.out.println("computeCapability is " + computeCapability[0] + "." + computeCapability[1]);
-    int GPUoverlap = dr.cuDeviceGetAttribute(res, 15, device);
+    CudaDr_device dr = new CudaDr_device();
+    CudaDr_initialization dr_in = new CudaDr_initialization();
+    dr_in.cuInit(dfe.getGvirtusFrontend(), res, 0);
+    int device = dr.cuDeviceGet(FE, res, CUdevice);
+    int numberofdevice = dr.cuDeviceGetCount(FE, res);
+    int[] computeCapability = dr.cuDeviceComputeCapability(FE, res, device);
+    System.out.println("GPU Device has " + computeCapability[0] + "." + computeCapability[1]
+        + " compute capability");
+    int GPUoverlap = dr.cuDeviceGetAttribute(FE, res, 15, device);
     System.out.println("GPUOverlap is " + GPUoverlap);
-    String name = dr.cuDeviceGetName(res, 255, device);
+    String name = dr.cuDeviceGetName(FE, res, 255, device);
     System.out.println("Device name is " + name);
-    long totalMem = dr.cuDeviceTotalMem(res, device);
-    System.out.println("Total mem is " + totalMem);
-    CudaDr_context ctx = new CudaDr_context(dfe);
-    String context = ctx.cuCtxCreate(res, 0, 0);
-    System.out.println("Context pointer is " + context);
+    long totalMem = dr.cuDeviceTotalMem(FE, res, device);
+    System.out.println("Total amount of global memory: " + totalMem + " bytes");
+    CudaDr_context ctx = new CudaDr_context();
+    String context = ctx.cuCtxCreate(FE, res, 0, 0);
+
 
     // String p = "/src/gvirtusfe/matrixMul_kernel64.ptx";
     // Path currentRelativePath = Paths.get("");
@@ -81,6 +180,9 @@ public class GVirtusDemo {
     // Sokol: ported in Android the code to read the ptx file.
     String ptxFile = "cuda-kernels/matrixMul_kernel64.ptx";
     String ptxSource = Utils.readAssetFileAsString(dfe.getContext(), ptxFile);
+
+    Log.i("GVirtuSDemo", "Beginning ptxSource: " + ptxSource.substring(0, 100));
+    Log.i("GVirtuSDemo", "End ptxSource: " + ptxSource.substring(ptxSource.length() - 100));
 
     int jitNumOptions = 3;
     int[] jitOptions = new int[jitNumOptions];
@@ -101,15 +203,19 @@ public class GVirtusDemo {
     long jitRegCount = 32;
     long jitOptVals2 = jitRegCount;
 
-    CudaDr_module dr_mod = new CudaDr_module(dfe);
+    CudaDr_module dr_mod = new CudaDr_module();
 
-    String cmodule = dr_mod.cuModuleLoadDataEx(res, ptxSource, jitNumOptions, jitOptions,
+    Log.i("GVirtuSDemo", "----------------- 0");
+
+    String cmodule = dr_mod.cuModuleLoadDataEx(FE, res, ptxSource, jitNumOptions, jitOptions,
         jitOptVals0, jitOptVals1, jitOptVals2);
-    String cfunction = dr_mod.cuModuleGetFunction(res, cmodule, "matrixMul_bs16_64bit");
-    System.out.println("pointer cfunction " + cfunction);
+    Log.i("GVirtuSDemo", "----------------- 1");
+
+    String cfunction = dr_mod.cuModuleGetFunction(FE, res, cmodule, "matrixMul_bs32_32bit");
+    Log.i("GVirtuSDemo", "----------------- 2");
 
     // allocate host memory for matrices A and B
-    int block_size = 16;
+    int block_size = 32; // larger block size is for Fermi and above
     int WA = (4 * block_size); // Matrix A width
     int HA = (6 * block_size); // Matrix A height
     int WB = (4 * block_size); // Matrix B width
@@ -117,37 +223,97 @@ public class GVirtusDemo {
     int WC = WB; // Matrix C width
     int HC = HA; // Matrix C height
     int size_A = WA * HA;
-
     int mem_size_A = Float.SIZE / 8 * size_A;
-    float[] h_A = new float[mem_size_A];
-
+    float[] h_A = new float[size_A];
     int size_B = WB * HB;
     int mem_size_B = Float.SIZE / 8 * size_B;
-    float[] h_B = new float[mem_size_B];
+    float[] h_B = new float[size_B];
     float valB = 0.01f;
     h_A = constantInit(h_A, size_A, 1.0f);
     h_B = constantInit(h_B, size_B, valB);
+    CudaDr_memory dr_mem = new CudaDr_memory();
+    // allocate device memory
+    String d_A;
+    d_A = dr_mem.cuMemAlloc(FE, res, mem_size_A);
+    Log.i("GVirtuSDemo", "----------------- 3");
+    String d_B;
+    d_B = dr_mem.cuMemAlloc(FE, res, mem_size_B);
+    Log.i("GVirtuSDemo", "----------------- 4");
+    dr_mem.cuMemcpyHtoD(FE, res, d_A, h_A, mem_size_A);
+    Log.i("GVirtuSDemo", "----------------- 5");
+    dr_mem.cuMemcpyHtoD(FE, res, d_B, h_B, mem_size_B);
+    Log.i("GVirtuSDemo", "----------------- 6");
 
-    // // allocate device memory
-    // CUdeviceptr d_A;
-    // checkCudaErrors(cuMemAlloc(&d_A, mem_size_A));
-    // CUdeviceptr d_B;
-    // checkCudaErrors(cuMemAlloc(&d_B, mem_size_B));
-    //
+    // allocate device memory for result
+    long size_C = WC * HC;
+    float[] h_C = new float[WC * HC];
+    long mem_size_C = Float.SIZE / 8 * size_C;
+    String d_C;
+    d_C = dr_mem.cuMemAlloc(FE, res, mem_size_C);
 
-    ctx.cuCtxDestroy(res, context);
+    dim3 block = new dim3(block_size, block_size, 1);
+    dim3 grid = new dim3(WC / block_size, HC / block_size, 1);
+
+    int offset = 0;
+
+    int sizeOf_C = Long.SIZE / 8;
+    int sizeOf_B = Long.SIZE / 8;
+    int sizeOf_A = Long.SIZE / 8;
+
+    // setup execution parameters
+    CudaDr_execution dr_exe = new CudaDr_execution();
+
+    dr_exe.cuParamSetv(FE, res, cfunction, offset, d_C, sizeOf_C);
+    offset += sizeOf_C;
+    Log.i("GVirtuSDemo", "----------------- 7");
+
+    dr_exe.cuParamSetv(FE, res, cfunction, offset, d_A, sizeOf_A);
+    offset += sizeOf_A;
+    Log.i("GVirtuSDemo", "----------------- 8");
+
+    dr_exe.cuParamSetv(FE, res, cfunction, offset, d_B, sizeOf_B);
+    offset += sizeOf_B;
+
+    int Matrix_Width_A = WA;
+    int Matrix_Width_B = WB;
+    int sizeof_Matrix_Width_A = Integer.SIZE / 8;
+    int sizeof_Matrix_Width_B = Integer.SIZE / 8;
+    dr_exe.cuParamSeti(FE, res, cfunction, offset, Matrix_Width_A);
+    offset += sizeof_Matrix_Width_A;
+    dr_exe.cuParamSeti(FE, res, cfunction, offset, Matrix_Width_B);
+    offset += sizeof_Matrix_Width_B;
+    dr_exe.cuParamSetSize(FE, res, cfunction, offset);
+    dr_exe.cuFuncSetBlockShape(FE, res, cfunction, block_size, block_size, grid.getZ());
+    dr_exe.cuFuncSetSharedSize(FE, res, cfunction, 2 * block_size * block_size * (Float.SIZE / 8));
+    dr_exe.cuLaunchGrid(FE, res, cfunction, grid.getX(), grid.getY());
+    h_C = dr_mem.cuMemcpyDtoH(FE, res, d_C, mem_size_C);
+    boolean correct = true;
+    System.out.println("Checking computed result for correctness...");
+    for (int i = 0; i < WC * HC; i++) {
+      if (Math.abs(h_C[i] - (WA * valB)) > 1e-5) {
+        System.out.println("Error!!!!");
+        correct = false;
+      }
+    }
+    System.out.println(correct ? "Result = PASS" : "Result = FAIL");
+
+    dr_mem.cuMemFree(FE, res, d_A);
+    dr_mem.cuMemFree(FE, res, d_B);
+    dr_mem.cuMemFree(FE, res, d_C);
+    ctx.cuCtxDestroy(FE, res, context);
 
   }
 
   public void deviceQuery() throws IOException {
     Result res = new Result();
-    CudaRt_device dv = new CudaRt_device(dfe);
+    Frontend FE = dfe.getGvirtusFrontend();
+    CudaRt_device dv = new CudaRt_device();
     System.out.println(
         "Starting...\nCUDA Device Query (Runtime API) version (CUDART static linking)\n\n");
-    int deviceCount = dv.cudaGetDeviceCount(res);
+    int deviceCount = dv.cudaGetDeviceCount(FE, res);
     if (res.getExit_code() != 0) {
       System.out.println("cudaGetDeviceCount returned " + res.getExit_code() + " -> "
-          + dv.cudaGetErrorString(res.getExit_code(), res));
+          + dv.cudaGetErrorString(FE, res.getExit_code(), res));
       System.out.println("Result = FAIL\n");
       return;
     }
@@ -157,12 +323,12 @@ public class GVirtusDemo {
       System.out.println("Detected " + deviceCount + " CUDA Capable device(s)");
     }
     for (int i = 0; i < deviceCount; i++) {
-      dv.cudaSetDevice(i, res);
+      dv.cudaSetDevice(FE, i, res);
       cudaDeviceProp deviceProp;
-      deviceProp = dv.cudaGetDeviceProperties(res, i);
+      deviceProp = dv.cudaGetDeviceProperties(FE, res, i);
       System.out.println("\nDevice " + i + ": " + deviceProp.getName());
-      int driverVersion = dv.cudaDriverGetVersion(res);
-      int runtimeVersion = dv.cudaRuntimeGetVersion(res);
+      int driverVersion = dv.cudaDriverGetVersion(FE, res);
+      int runtimeVersion = dv.cudaRuntimeGetVersion(FE, res);
       System.out.println("CUDA Driver Version/Runtime Version:         " + driverVersion / 1000
           + "." + (driverVersion % 100) / 10 + " / " + runtimeVersion / 1000 + "."
           + (runtimeVersion % 100) / 10);
@@ -223,9 +389,9 @@ public class GVirtusDemo {
         System.out.println("Run time limit on kernels:                     No");
       else
         System.out.println("Run time limit on kernels:                     Yes");
-      int x = dv.cudaDeviceCanAccessPeer(res, i, 1);
+      int x = dv.cudaDeviceCanAccessPeer(FE, res, i, 1);
       System.out.println("Test device " + i + " peer is " + x);
-      dv.cudaDeviceReset(res);
+      dv.cudaDeviceReset(FE, res);
       System.out.println("Cuda reset successfull");
     }
   }
@@ -233,10 +399,10 @@ public class GVirtusDemo {
   public void runtimeMemoryMalloc() throws IOException {
 
     Result res = new Result();
-    CudaRt_memory mem = new CudaRt_memory(dfe);
-    String pointerA = mem.cudaMalloc(res, 25);
+    CudaRt_memory mem = new CudaRt_memory();
+    String pointerA = mem.cudaMalloc(dfe.getGvirtusFrontend(), res, 25);
     float[] h_A = new float[25];
     h_A = constantInit(h_A, 25, 1.0f);
-    mem.cudaMemcpy(res, pointerA, h_A, h_A.length, 1);
+    mem.cudaMemcpy(dfe.getGvirtusFrontend(), res, pointerA, h_A, h_A.length, 1);
   }
 }

@@ -269,15 +269,15 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
         }
       }
 
-      // for (int i = 0; i < nrTests; i++) {
-      // Log.i(TAG, "------------ Started running the GVirtuS matrixMul demo.");
-      // try {
-      // gvirtusDemo.matrixMul();
-      // Log.i(TAG, "Correctly executed the GVirtuS matrixMul demo.");
-      // } catch (IOException e) {
-      // Log.e(TAG, "Error while running the GVirtuS matrixMul demo: " + e);
-      // }
-      // }
+      for (int i = 0; i < nrTests; i++) {
+        Log.i(TAG, "------------ Started running the GVirtuS matrixMul demo.");
+        try {
+          gvirtusDemo.matrixMul2();
+          Log.i(TAG, "Correctly executed the GVirtuS matrixMul demo.");
+        } catch (IOException e) {
+          Log.e(TAG, "Error while running the GVirtuS matrixMul demo: " + e);
+        }
+      }
 
       return null;
     }
