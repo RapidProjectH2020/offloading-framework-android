@@ -241,7 +241,7 @@ public class CudaRt_device {
       String str = outbuffer.substring(i, i + 2);
       output.append((char) Integer.parseInt(str, 16));
     }
-    struct.name = output.toString();
+    struct.name = output.toString().trim();
     struct.totalGlobalMem = this.getLong(res);
     struct.sharedMemPerBlock = this.getLong(res);
     struct.regsPerBlock = this.getInt(res);
