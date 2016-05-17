@@ -304,96 +304,177 @@ public class GVirtusDemo {
 
   }
 
-  public void deviceQuery() throws IOException {
+  public String deviceQuery() throws IOException {
+    StringBuilder output = new StringBuilder();
     Result res = new Result();
     Frontend FE = dfe.getGvirtusFrontend();
     CudaRt_device dv = new CudaRt_device();
-    System.out.println(
-        "Starting...\nCUDA Device Query (Runtime API) version (CUDART static linking)\n\n");
+    // System.out.println(
+    // "Starting...\nCUDA Device Query (Runtime API) version (CUDART static linking)\n\n");
+    output
+        .append("Starting...\nCUDA Device Query (Runtime API) version (CUDART static linking)\n\n");
     int deviceCount = dv.cudaGetDeviceCount(FE, res);
     if (res.getExit_code() != 0) {
-      System.out.println("cudaGetDeviceCount returned " + res.getExit_code() + " -> "
-          + dv.cudaGetErrorString(FE, res.getExit_code(), res));
-      System.out.println("Result = FAIL\n");
-      return;
+      output.append("cudaGetDeviceCount returned " + res.getExit_code() + " -> "
+          + dv.cudaGetErrorString(FE, res.getExit_code(), res)).append("\n");
+      // System.out.println("cudaGetDeviceCount returned " + res.getExit_code() + " -> "
+      // + dv.cudaGetErrorString(FE, res.getExit_code(), res));
+
+      // System.out.println("Result = FAIL\n");
+      output.append("Result = FAIL\n");
+      return output.toString();
     }
+
     if (deviceCount == 0) {
       System.out.println("There are no available device(s) that support CUDA\n");
     } else {
       System.out.println("Detected " + deviceCount + " CUDA Capable device(s)");
     }
+
     for (int i = 0; i < deviceCount; i++) {
       dv.cudaSetDevice(FE, i, res);
       cudaDeviceProp deviceProp;
       deviceProp = dv.cudaGetDeviceProperties(FE, res, i);
-      System.out.println("\nDevice " + i + ": " + deviceProp.getName());
+      // System.out.println("\nDevice " + i + ": " + deviceProp.getName());
+      output.append("\nDevice " + i + ": " + deviceProp.getName()).append("\n");
+
       int driverVersion = dv.cudaDriverGetVersion(FE, res);
       int runtimeVersion = dv.cudaRuntimeGetVersion(FE, res);
-      System.out.println("CUDA Driver Version/Runtime Version:         " + driverVersion / 1000
-          + "." + (driverVersion % 100) / 10 + " / " + runtimeVersion / 1000 + "."
-          + (runtimeVersion % 100) / 10);
-      System.out.println("CUDA Capability Major/Minor version number:  " + deviceProp.getMajor()
-          + "." + deviceProp.getMinor());
-      System.out.println("Total amount of global memory:                 "
-          + deviceProp.getTotalGlobalMem() / 1048576.0f + " MBytes ("
-          + deviceProp.getTotalGlobalMem() + " bytes)\n");
-      System.out.println("GPU Clock rate:                              "
-          + deviceProp.getClockRate() * 1e-3f + " Mhz (" + deviceProp.getClockRate() * 1e-6f + ")");
-      System.out.println("Memory Clock rate:                           "
-          + deviceProp.getMemoryClockRate() * 1e-3f + " Mhz");
-      System.out.println("Memory Bus Width:                            "
-          + deviceProp.getMemoryBusWidth() + "-bit");
+      // System.out.println("CUDA Driver Version/Runtime Version: " + driverVersion / 1000
+      // + "." + (driverVersion % 100) / 10 + " / " + runtimeVersion / 1000 + "."
+      // + (runtimeVersion % 100) / 10);
+      // System.out.println("CUDA Capability Major/Minor version number: " + deviceProp.getMajor()
+      // + "." + deviceProp.getMinor());
+      // System.out.println("Total amount of global memory: "
+      // + deviceProp.getTotalGlobalMem() / 1048576.0f + " MBytes ("
+      // + deviceProp.getTotalGlobalMem() + " bytes)\n");
+      // System.out.println("GPU Clock rate: "
+      // + deviceProp.getClockRate() * 1e-3f + " Mhz (" + deviceProp.getClockRate() * 1e-6f + ")");
+      // System.out.println("Memory Clock rate: "
+      // + deviceProp.getMemoryClockRate() * 1e-3f + " Mhz");
+      // System.out.println("Memory Bus Width: "
+      // + deviceProp.getMemoryBusWidth() + "-bit");
+
+      output
+          .append("CUDA Driver Version/Runtime Version:         " + driverVersion / 1000 + "."
+              + (driverVersion % 100) / 10 + " / " + runtimeVersion / 1000 + "."
+              + (runtimeVersion % 100) / 10)
+          .append("\n")
+          .append("CUDA Capability Major/Minor version number:  " + deviceProp.getMajor() + "."
+              + deviceProp.getMinor())
+          .append("\n")
+          .append("Total amount of global memory:                 "
+              + deviceProp.getTotalGlobalMem() / 1048576.0f + " MBytes ("
+              + deviceProp.getTotalGlobalMem() + " bytes)\n")
+          .append(
+              "GPU Clock rate:                              " + deviceProp.getClockRate() * 1e-3f
+                  + " Mhz (" + deviceProp.getClockRate() * 1e-6f + ")\n")
+          .append("Memory Clock rate:                           "
+              + deviceProp.getMemoryClockRate() * 1e-3f + " Mhz\n")
+          .append("Memory Bus Width:                            " + deviceProp.getMemoryBusWidth()
+              + "-bit\n");
+
       if (deviceProp.getL2CacheSize() == 1) {
-        System.out.println("L2 Cache Size:                               "
-            + deviceProp.getL2CacheSize() + " bytes");
+        // System.out.println("L2 Cache Size: "
+        // + deviceProp.getL2CacheSize() + " bytes");
+        output.append("L2 Cache Size:                               " + deviceProp.getL2CacheSize()
+            + " bytes").append("\n");
       }
-      System.out.println("Maximum Texture Dimension Size (x,y,z)         1D=("
-          + deviceProp.getMaxTexture1D() + "), 2D=(" + deviceProp.getMaxTexture2D()[0] + ","
-          + deviceProp.getMaxTexture2D()[1] + "), 3D=(" + deviceProp.getMaxTexture3D()[0] + ", "
-          + deviceProp.getMaxTexture3D()[1] + ", " + deviceProp.getMaxTexture3D()[2] + ")");
-      System.out.println("Maximum Layered 1D Texture Size, (num) layers  1D=("
-          + deviceProp.getMaxTexture1DLayered()[0] + "), " + deviceProp.getMaxTexture1DLayered()[1]
-          + " layers");
-      System.out.println("Maximum Layered 2D Texture Size, (num) layers  2D=("
-          + deviceProp.getMaxTexture2DLayered()[0] + ", " + deviceProp.getMaxTexture2DLayered()[1]
-          + "), " + deviceProp.getMaxTexture2DLayered()[2] + " layers");
-      System.out.println("Total amount of constant memory:               "
-          + deviceProp.getTotalConstMem() + " bytes");
-      System.out.println("Total amount of shared memory per block:       "
-          + deviceProp.getSharedMemPerBlock() + " bytes");
-      System.out.println(
-          "Total number of registers available per block: " + deviceProp.getRegsPerBlock());
-      System.out
-          .println("Warp size:                                     " + deviceProp.getWarpSize());
-      System.out.println("Maximum number of threads per multiprocessor:  "
-          + deviceProp.getMaxThreadsPerMultiProcessor());
-      System.out.println(
-          "Maximum number of threads per block:           " + deviceProp.getMaxThreadsPerBlock());
-      System.out.println("Max dimension size of a thread block (x,y,z): ("
-          + deviceProp.getMaxThreadsDim()[0] + ", " + deviceProp.getMaxThreadsDim()[1] + ", "
-          + deviceProp.getMaxThreadsDim()[2] + ")");
-      System.out.println(
-          "Max dimension size of a grid size    (x,y,z): (" + deviceProp.getMaxGridSize()[0] + ", "
-              + deviceProp.getMaxGridSize()[1] + "," + deviceProp.getMaxGridSize()[2] + ")");
-      System.out.println(
-          "Maximum memory pitch:                          " + deviceProp.getMemPitch() + " bytes");
-      System.out.println("Texture alignment:                             "
-          + deviceProp.getTextureAlignment() + " bytes");
-      if (deviceProp.getDeviceOverlap() == 0)
+
+      // System.out.println("Maximum Texture Dimension Size (x,y,z) 1D=("
+      // + deviceProp.getMaxTexture1D() + "), 2D=(" + deviceProp.getMaxTexture2D()[0] + ","
+      // + deviceProp.getMaxTexture2D()[1] + "), 3D=(" + deviceProp.getMaxTexture3D()[0] + ", "
+      // + deviceProp.getMaxTexture3D()[1] + ", " + deviceProp.getMaxTexture3D()[2] + ")");
+      // System.out.println("Maximum Layered 1D Texture Size, (num) layers 1D=("
+      // + deviceProp.getMaxTexture1DLayered()[0] + "), " + deviceProp.getMaxTexture1DLayered()[1]
+      // + " layers");
+      // System.out.println("Maximum Layered 2D Texture Size, (num) layers 2D=("
+      // + deviceProp.getMaxTexture2DLayered()[0] + ", " + deviceProp.getMaxTexture2DLayered()[1]
+      // + "), " + deviceProp.getMaxTexture2DLayered()[2] + " layers");
+      // System.out.println("Total amount of constant memory: "
+      // + deviceProp.getTotalConstMem() + " bytes");
+      // System.out.println("Total amount of shared memory per block: "
+      // + deviceProp.getSharedMemPerBlock() + " bytes");
+      // System.out.println(
+      // "Total number of registers available per block: " + deviceProp.getRegsPerBlock());
+      // System.out
+      // .println("Warp size: " + deviceProp.getWarpSize());
+      // System.out.println("Maximum number of threads per multiprocessor: "
+      // + deviceProp.getMaxThreadsPerMultiProcessor());
+      // System.out.println(
+      // "Maximum number of threads per block: " + deviceProp.getMaxThreadsPerBlock());
+      // System.out.println("Max dimension size of a thread block (x,y,z): ("
+      // + deviceProp.getMaxThreadsDim()[0] + ", " + deviceProp.getMaxThreadsDim()[1] + ", "
+      // + deviceProp.getMaxThreadsDim()[2] + ")");
+      // System.out.println(
+      // "Max dimension size of a grid size (x,y,z): (" + deviceProp.getMaxGridSize()[0] + ", "
+      // + deviceProp.getMaxGridSize()[1] + "," + deviceProp.getMaxGridSize()[2] + ")");
+      // System.out.println(
+      // "Maximum memory pitch: " + deviceProp.getMemPitch() + " bytes");
+      // System.out.println("Texture alignment: "
+      // + deviceProp.getTextureAlignment() + " bytes");
+
+      output
+          .append("Maximum Texture Dimension Size (x,y,z)         1D=("
+              + deviceProp.getMaxTexture1D() + "), 2D=(" + deviceProp.getMaxTexture2D()[0] + ","
+              + deviceProp.getMaxTexture2D()[1] + "), 3D=(" + deviceProp.getMaxTexture3D()[0] + ", "
+              + deviceProp.getMaxTexture3D()[1] + ", " + deviceProp.getMaxTexture3D()[2] + ")\n")
+          .append("Maximum Layered 1D Texture Size, (num) layers  1D=("
+              + deviceProp.getMaxTexture1DLayered()[0] + "), "
+              + deviceProp.getMaxTexture1DLayered()[1] + " layers\n")
+          .append("Maximum Layered 2D Texture Size, (num) layers  2D=("
+              + deviceProp.getMaxTexture2DLayered()[0] + ", "
+              + deviceProp.getMaxTexture2DLayered()[1] + "), "
+              + deviceProp.getMaxTexture2DLayered()[2] + " layers\n")
+          .append("Total amount of constant memory:               " + deviceProp.getTotalConstMem()
+              + " bytes\n")
+          .append("Total amount of shared memory per block:       "
+              + deviceProp.getSharedMemPerBlock() + " bytes\n")
+          .append("Total number of registers available per block: " + deviceProp.getRegsPerBlock()
+              + "\nWarp size:                                     " + deviceProp.getWarpSize()
+              + "\nMaximum number of threads per multiprocessor:  "
+              + deviceProp.getMaxThreadsPerMultiProcessor()
+              + "\nMaximum number of threads per block:           "
+              + deviceProp.getMaxThreadsPerBlock()
+              + "\nMax dimension size of a thread block (x,y,z): ("
+              + deviceProp.getMaxThreadsDim()[0] + ", " + deviceProp.getMaxThreadsDim()[1] + ", "
+              + deviceProp.getMaxThreadsDim()[2] + ")"
+              + "\nMax dimension size of a grid size    (x,y,z): (" + deviceProp.getMaxGridSize()[0]
+              + ", " + deviceProp.getMaxGridSize()[1] + "," + deviceProp.getMaxGridSize()[2] + ")"
+              + "\nMaximum memory pitch:                          " + deviceProp.getMemPitch()
+              + " bytes" + "\nTexture alignment:                             "
+              + deviceProp.getTextureAlignment() + " bytes")
+          .append("\n");
+
+      if (deviceProp.getDeviceOverlap() == 0) {
         System.out.println("Concurrent copy and kernel execution:          No with "
             + deviceProp.getAsyncEngineCount() + " copy engine(s)");
-      else
+        output.append("Concurrent copy and kernel execution:          No with "
+            + deviceProp.getAsyncEngineCount() + " copy engine(s)").append("\n");
+      } else {
         System.out.println("Concurrent copy and kernel execution:          Yes with "
             + deviceProp.getAsyncEngineCount() + " copy engine(s)");
-      if (deviceProp.getKernelExecTimeoutEnabled() == 0)
-        System.out.println("Run time limit on kernels:                     No");
-      else
-        System.out.println("Run time limit on kernels:                     Yes");
+        output.append("Concurrent copy and kernel execution:          Yes with "
+            + deviceProp.getAsyncEngineCount() + " copy engine(s)").append("\n");
+      }
+
+      if (deviceProp.getKernelExecTimeoutEnabled() == 0) {
+        // System.out.println("Run time limit on kernels: No");
+        output.append("Run time limit on kernels:                     No").append("\n");
+      } else {
+        // System.out.println("Run time limit on kernels: Yes");
+        output.append("Run time limit on kernels:                     Yes").append("\n");
+      }
+
       int x = dv.cudaDeviceCanAccessPeer(FE, res, i, 1);
-      System.out.println("Test device " + i + " peer is " + x);
+      // System.out.println("Test device " + i + " peer is " + x);
+      output.append("Test device " + i + " peer is " + x).append("\n");
       dv.cudaDeviceReset(FE, res);
-      System.out.println("Cuda reset successfull");
+      // System.out.println("Cuda reset successfull");
+      output.append("Cuda reset successfull").append("\n");
     }
+
+    return output.toString();
   }
 
   public void runtimeMemoryMalloc() throws IOException {
