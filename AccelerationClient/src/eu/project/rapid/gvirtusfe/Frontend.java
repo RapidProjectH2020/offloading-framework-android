@@ -8,9 +8,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
+import android.util.Log;
 import eu.project.rapid.ac.utils.Utils;
 
 /**
@@ -18,6 +17,9 @@ import eu.project.rapid.ac.utils.Utils;
  * @author cferraro
  */
 public final class Frontend {
+
+  private static final String TAG = Frontend.class.getName();
+
   String serverIpAddress;
   int port;
   Socket socket, clientSocket;
@@ -32,9 +34,8 @@ public final class Frontend {
       this.socket = new Socket(this.serverIpAddress, this.port);
       this.outputStream = new DataOutputStream(this.socket.getOutputStream());
       this.in = new DataInputStream(this.socket.getInputStream());
-
-    } catch (IOException ex) {
-      Logger.getLogger(Frontend.class.getName()).log(Level.SEVERE, null, ex);
+    } catch (IOException e) {
+      Log.e(TAG, "Could not connect to GVirtuS backend server!" + e);
     }
   }
 

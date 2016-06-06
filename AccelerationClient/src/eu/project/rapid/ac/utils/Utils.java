@@ -16,20 +16,38 @@
 package eu.project.rapid.ac.utils;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.OutputStreamWriter;
+import java.io.RandomAccessFile;
+import java.io.StreamCorruptedException;
+import java.net.InetAddress;
+import java.net.InterfaceAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.Charset;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
 import android.content.Context;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 
 public class Utils {
@@ -80,6 +98,222 @@ public class Utils {
 
     return bytes;
   }
+
+  public static byte[] objectToByteArray(Object o) throws IOException {
+    byte[] bytes = null;
+    ByteArrayOutputStream bos = null;
+    ObjectOutputStream oos = null;
+    try {
+      bos = new ByteArrayOutputStream();
+      oos = new ObjectOutputStream(bos);
+      oos.writeObject(o);
+      oos.flush();
+      bytes = bos.toByteArray();
+    } finally {
+      if (oos != null) {
+        oos.close();
+      }
+      if (bos != null) {
+        bos.close();
+      }
+    }
+    return bytes;
+  }
+
+  public static Object byteArrayToObject(byte[] bytes)
+      throws StreamCorruptedException, IOException, ClassNotFoundException {
+    Object obj = null;
+    ByteArrayInputStream bis = null;
+    ObjectInputStream ois = null;
+    try {
+      bis = new ByteArrayInputStream(bytes);
+      ois = new ObjectInputStream(bis);
+      obj = ois.readObject();
+    } finally {
+      if (bis != null) {
+        bis.close();
+      }
+      if (ois != null) {
+        ois.close();
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * @param context The context of the app calling this method.
+   * @return The unique ID of this device, which usually is the IMEI.
+   */
+  private static String getDeviceId(Context context) {
+    TelephonyManager telephonyManager =
+        (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+    String deviceId = telephonyManager.getDeviceId();
+
+    return (deviceId != null ? deviceId : "null");
+  }
+
+  public static String getDeviceIdHashHex(Context context) {
+    return sha256HashHex(getDeviceId(context));
+  }
+
+  public static byte[] getDeviceIdHashByteArray(Context context) {
+    return sha256HashByteArray(getDeviceId(context));
+  }
+
+  /**
+   * @param s The string to be hash-ed.
+   * @return The byte array hash digested result.
+   */
+  public static byte[] sha256HashByteArray(String s) {
+    byte[] hash = null;
+    try {
+      MessageDigest md = MessageDigest.getInstance("SHA-256");
+      hash = md.digest(s.getBytes());
+    } catch (NoSuchAlgorithmException e) {
+      Log.e(TAG, "Algorithm not found while hashing string: " + e);
+      // e.printStackTrace();
+    }
+
+    return hash;
+  }
+
+  public static String sha256HashHex(String s) {
+    return bytesToHex(sha256HashByteArray(s));
+  }
+
+  /**
+   * This utility method will be used to write an object on a file. The object can be a Set, a Map,
+   * etc.<br>
+   * The method creates a lock file (if it doesn't exist) and tries to get a <b>blocking lock</b> on
+   * the lock file. After writing the object the lock is released, so that other processes that want
+   * to read the file can access it by getting the lock.
+   * 
+   * @param fileName The full path of the file where to write the object. If the file exists it will
+   *        first be deleted and the created from scratch.
+   * @param obj The object to write on the file.
+   * @throws IOException
+   */
+  public static void writeObjectToFile(String fileName, Object obj) throws IOException {
+    // Get a lock on the lockFile so that concurrent DFEs don't mess with each other by
+    // reading/writing the d2dSetFile.
+    File lockFile = new File(fileName + ".lock");
+    // Create a FileChannel that can read and write that file.
+    // This will create the file if it doesn't exit.
+    RandomAccessFile file = new RandomAccessFile(lockFile, "rw");
+    FileChannel f = file.getChannel();
+
+    // Try to get an exclusive lock on the file.
+    // FileLock lock = f.tryLock();
+    FileLock lock = f.lock();
+
+    // Now we have the lock, so we can write on the file
+    File outFile = new File(fileName);
+    if (outFile.exists()) {
+      outFile.delete();
+    }
+    outFile.createNewFile();
+    FileOutputStream fout = new FileOutputStream(outFile);
+    ObjectOutputStream oos = new ObjectOutputStream(fout);
+    oos.writeObject(obj);
+    oos.close();
+
+    // Now we release the lock and close the lockFile
+    lock.release();
+    file.close();
+  }
+
+  /**
+   * Reads the previously serialized object from the <code>filename</code>.<br>
+   * This method will try to get a <b>non blocking lock</b> on a lock file.
+   * 
+   * @param fileName The full path of the file from where to read the object.
+   * @return The serialized object previously written using the method
+   *         <code>writeObjectToFile</code>
+   * @throws IOException
+   * @throws ClassNotFoundException
+   */
+  public static Object readObjectFromFile(String fileName)
+      throws IOException, ClassNotFoundException {
+    Object obj = null;
+
+    // First try to get the lock on a lock file
+    File lockFile = new File(fileName + ".lock");
+    if (!lockFile.exists()) {
+      // It means that no other process has written an object before.
+      return null;
+    }
+
+    // Create a FileChannel that can read and write that file.
+    // This will create the file if it doesn't exit.
+    RandomAccessFile file = new RandomAccessFile(lockFile, "rw");
+    FileChannel f = file.getChannel();
+
+    // Try to get an exclusive lock on the file.
+    // FileLock lock = f.tryLock();
+    FileLock lock = f.lock();
+
+    // Now we have the lock, so we can read from the file
+    File inFile = new File(fileName);
+    FileInputStream fis = new FileInputStream(inFile);
+    ObjectInputStream ois = new ObjectInputStream(fis);
+    obj = ois.readObject();
+    ois.close();
+
+    // Now we release the lock and close the lockFile
+    lock.release();
+    file.close();
+    return obj;
+  }
+
+  /**
+   * Get IP address from first non-localhost interface
+   * 
+   * @return address or null
+   */
+  public static InetAddress getIpAddress() {
+    try {
+      List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
+      for (NetworkInterface intf : interfaces) {
+        List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
+        for (InetAddress addr : addrs) {
+          // Sokol: FIXME remove the hard coded "wlan" check
+          if (!addr.isLoopbackAddress() && addr.toString().contains("wlan")) {
+            return addr;
+          }
+          // On emulator
+          if (!addr.isLoopbackAddress() && addr.toString().contains("eth0")) {
+            return addr;
+          }
+        }
+      }
+    } catch (Exception e) {
+      Log.i(TAG, "Exception while getting IP address: " + e);
+    }
+    return null;
+  }
+
+  public static InetAddress getBroadcast(InetAddress myIpAddress) {
+
+    NetworkInterface temp;
+    InetAddress iAddr = null;
+    try {
+      temp = NetworkInterface.getByInetAddress(myIpAddress);
+      List<InterfaceAddress> addresses = temp.getInterfaceAddresses();
+
+      for (InterfaceAddress inetAddress : addresses) {
+        iAddr = inetAddress.getBroadcast();
+      }
+      Log.d(TAG, "iAddr=" + iAddr);
+      return iAddr;
+
+    } catch (SocketException e) {
+
+      e.printStackTrace();
+      Log.d(TAG, "getBroadcast" + e.getMessage());
+    }
+    return null;
+  }
+
 
   /**
    * An empty file will be created automatically on the clone by Acceleration-Server. The presence

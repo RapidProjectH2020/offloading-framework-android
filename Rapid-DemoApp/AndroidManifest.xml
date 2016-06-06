@@ -54,7 +54,7 @@
         </activity>
         
         <!-- This service is implemented in the library but should be declared here otherwise it can't be started. -->
-        <service android:name="eu.project.rapid.ac.d2d.D2DService"></service>
+        <service android:name="eu.project.rapid.ac.d2d.D2DClientService"></service>
     </application>
 
 </manifest>

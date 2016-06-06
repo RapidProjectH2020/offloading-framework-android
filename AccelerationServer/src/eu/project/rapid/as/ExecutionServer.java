@@ -1,19 +1,17 @@
 /*******************************************************************************
  * Copyright (C) 2015, 2016 RAPID EU Project
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify it under the terms of the
+ * GNU Lesser General Public License as published by the Free Software Foundation; either version
+ * 2.1 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * You should have received a copy of the GNU Lesser General Public License along with this library;
+ * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *******************************************************************************/
 package eu.project.rapid.as;
 
@@ -25,8 +23,10 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.MulticastSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.security.KeyStore;
@@ -43,10 +43,13 @@ import java.util.Random;
 import javax.net.ssl.KeyManagerFactory;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 import android.util.SparseArray;
+import eu.project.rapid.ac.d2d.D2DMessage;
 import eu.project.rapid.ac.utils.Constants;
 import eu.project.rapid.ac.utils.Utils;
 import eu.project.rapid.common.Configuration;
@@ -60,6 +63,8 @@ import eu.project.rapid.common.RapidUtils;
  */
 public class ExecutionServer extends Service {
 
+  private Context context;
+
   // When doing tests about send/receive data
   // To avoid creating the objects in the real deployment
   private static final boolean TESTING_UL_DL_RATE = false;
@@ -68,8 +73,12 @@ public class ExecutionServer extends Service {
   private static final String TAG = "ExecutionServer";
   private Configuration config;
 
+  public static boolean asServiceRunning = true;
   private boolean managerThreadFinished = false;
   private boolean okTalkingToManager = false;
+
+  private Handler mBroadcastHandler;
+  private Runnable mBroadcastRunnable;
 
   static {
     Security.insertProviderAt(new org.spongycastle.jce.provider.BouncyCastleProvider(), 1);
@@ -102,14 +111,19 @@ public class ExecutionServer extends Service {
   public int onStartCommand(Intent intent, int flags, int startId) {
     // Create server socket
     Log.d(TAG, "Start server socket");
+    context = this.getApplicationContext();
+    if (context == null) {
+      Log.e(TAG, "Context is null!!!");
+      stopSelf();
+    }
 
     // Create a special file on the clone that methods can use to check
-    // if are being executed on the clone or on the phone
+    // if are being executed on the clone or on the phone.
     // This can be of help to advanced developers.
     createOffloadedFile();
 
     // Delete the file containing the cloneHelperId assigned to this clone
-    // (if such file does not exist do nothing)
+    // (if such file does not exist do nothing).
     Utils.deleteCloneHelperId();
 
     try {
@@ -160,6 +174,9 @@ public class ExecutionServer extends Service {
     Thread t = new Thread(new ConnectToManager());
     t.start();
 
+    // Start the D2D handler that broadcasts ping messages with a certain frequency
+    startD2DThread();
+
     return START_STICKY;
   }
 
@@ -185,7 +202,6 @@ public class ExecutionServer extends Service {
 
   @Override
   public IBinder onBind(Intent intent) {
-    // TODO Auto-generated method stub
     return null;
   }
 
@@ -201,14 +217,14 @@ public class ExecutionServer extends Service {
     public void run() {
 
       // Before proceeding wait until the network interface is up and correctly configured
-      try {
-        // The manager runs on the host machine, so checking if we can ping the ManagerIp in reality
-        // we are checking if we can ping the host machine.
-        // We should definitely be able to do that, otherwise this clone is useless if not
-        // connected to the network.
-        InetAddress hostMachineAddress = InetAddress.getByName(config.getManagerIp());
-        boolean hostMachineReachable = false;
-        do {
+      boolean hostMachineReachable = false;
+      do {
+        try {
+          // The manager runs on the host machine, so checking if we can ping the ManagerIp in
+          // reality we are checking if we can ping the host machine.
+          // We should definitely be able to do that, otherwise this clone is useless if not
+          // connected to the network.
+          InetAddress hostMachineAddress = InetAddress.getByName(config.getManagerIp());
           try {
             Log.i(TAG,
                 "Trying to ping the host machine " + hostMachineAddress.getHostAddress() + "...");
@@ -216,13 +232,11 @@ public class ExecutionServer extends Service {
           } catch (IOException e) {
             Log.w(TAG, "Error while trying to ping the host machine: " + e);
           }
-        } while (!hostMachineReachable);
-        Log.i(TAG, "Host machine replied to ping. Network interface is up and running.");
-
-      } catch (UnknownHostException e1) {
-        // TODO Auto-generated catch block
-        e1.printStackTrace();
-      }
+        } catch (UnknownHostException e1) {
+          Log.e(TAG, "Error while getting hostname: " + e1);
+        }
+      } while (!hostMachineReachable);
+      Log.i(TAG, "Host machine replied to ping. Network interface is up and running.");
 
       Socket dirManagerSocket = new Socket();
       ObjectOutputStream oos = null;
@@ -296,14 +310,81 @@ public class ExecutionServer extends Service {
     new Thread(new NetworkProfilerServer(config)).start();
 
     Log.d(TAG, "Starting CloneThread on port " + config.getClonePort());
-    new Thread(new CloneThread(this.getApplicationContext(), config)).start();
+    new Thread(new CloneThread(context, config)).start();
 
     if (config.isCryptoInitialized()) {
       Log.d(TAG, "Starting CloneSslThread on port " + config.getSslClonePort());
-      new Thread(new CloneSslThread(this.getApplicationContext(), config)).start();
+      new Thread(new CloneSslThread(context, config)).start();
     } else {
       Log.w(TAG,
           "Cannot start the CloneSSLThread since the cryptographic initialization was not succesful");
+    }
+  }
+
+  /**
+   * FIXME This thread should run only on the mobile devices, so it should not be started
+   * automatically here but the user should have to press a button to start it.
+   */
+  private void startD2DThread() {
+    if (mBroadcastHandler == null) {
+      mBroadcastHandler = new Handler();
+    }
+    if (mBroadcastRunnable == null) {
+      mBroadcastRunnable = new BroadcastRunnable();
+    }
+    mBroadcastHandler.postDelayed(mBroadcastRunnable, Constants.D2D_BROADCAST_INTERVAL);
+  }
+
+  private class BroadcastRunnable implements Runnable {
+    public void run() {
+      Log.i(TAG, "Running the broadcast message runnable");
+      if (context == null) {
+        Log.e(TAG, "Context is null!!!");
+      }
+      broadcastMessage(new D2DMessage(context, D2DMessage.MsgType.HELLO));
+      mBroadcastHandler.postDelayed(mBroadcastRunnable, Constants.D2D_BROADCAST_INTERVAL);
+    }
+
+    private void broadcastMessage(final D2DMessage msg) {
+      new Thread() {
+        public void run() {
+          DatagramPacket packet;
+          MulticastSocket socket = null;
+          try {
+            byte[] data = Utils.objectToByteArray(msg);
+
+            socket = new MulticastSocket(Constants.D2D_BROADCAST_PORT);
+            socket.setBroadcast(true);
+
+            InetAddress myIpAddress = Utils.getIpAddress();
+            Log.i(TAG, "My IP address: " + myIpAddress);
+            InetAddress broadcastAddress = Utils.getBroadcast(myIpAddress);
+            Log.i(TAG, "Broadcast IP address: " + broadcastAddress);
+            try {
+              packet = new DatagramPacket(data, data.length, broadcastAddress,
+                  Constants.D2D_BROADCAST_PORT);
+              socket.send(packet);
+              Log.i(TAG, "==>> Broadcast message sent to " + broadcastAddress);
+              Log.i(TAG, "==>> CMD: " + msg);
+            } catch (UnknownHostException e) {
+              Log.i(TAG, "UnknownHostException while sending data: " + e);
+              e.printStackTrace();
+            } catch (IOException e) {
+              Log.i(TAG, "IOException while sending data: " + e);
+              e.printStackTrace();
+            } catch (NullPointerException e) {
+              Log.i(TAG, "NullPointerException while sending data: " + e);
+              e.printStackTrace();
+            }
+          } catch (IOException e) {
+            e.printStackTrace();
+          } finally {
+            if (socket != null) {
+              socket.close();
+            }
+          }
+        }
+      }.start();
     }
   }
 }

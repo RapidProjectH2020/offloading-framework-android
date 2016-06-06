@@ -40,11 +40,16 @@ import java.security.PublicKey;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.util.Iterator;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
@@ -68,7 +73,8 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.preference.PreferenceManager;
 import android.util.Log;
-import eu.project.rapid.ac.d2d.D2DService;
+import eu.project.rapid.ac.d2d.D2DClientService;
+import eu.project.rapid.ac.d2d.PhoneSpecs;
 import eu.project.rapid.ac.db.DatabaseQuery;
 import eu.project.rapid.ac.profilers.DeviceProfiler;
 import eu.project.rapid.ac.profilers.LogRecord;
@@ -76,6 +82,7 @@ import eu.project.rapid.ac.profilers.NetworkProfiler;
 import eu.project.rapid.ac.profilers.Profiler;
 import eu.project.rapid.ac.profilers.ProgramProfiler;
 import eu.project.rapid.ac.utils.Constants;
+import eu.project.rapid.ac.utils.Utils;
 import eu.project.rapid.common.Clone;
 import eu.project.rapid.common.Configuration;
 import eu.project.rapid.common.RapidMessages;
@@ -83,8 +90,8 @@ import eu.project.rapid.common.RapidUtils;
 import eu.project.rapid.gvirtusfe.Frontend;
 
 /**
- * The interface to the framework for the client program - controls DSE, profilers, communicates
- * with remote server.
+ * The most important class of the framework for the client program - controls DSE, profilers,
+ * communicates with remote server.
  * 
  */
 
@@ -136,6 +143,10 @@ public class DFE {
   public LogRecord lastLogRecord;
   private int myId = -1;
   private int myIdWithDS = -1;
+  private PhoneSpecs myPhoneSpecs;
+
+  private Set<PhoneSpecs> d2dSetPhones = new TreeSet<PhoneSpecs>();
+  private ScheduledThreadPoolExecutor d2dSetReaderThread;
 
   private ProgressDialog pd = null;
 
@@ -166,6 +177,7 @@ public class DFE {
     this.mPManager = pManager;
     this.mContext = context;
     sClone = clone;
+    this.myPhoneSpecs = PhoneSpecs.getPhoneSpecs(mContext);
 
     readConfigurationFile();
     initializeCrypto();
@@ -179,7 +191,7 @@ public class DFE {
 
     mDSE = new DSE(mContext, userChoice);
 
-    mDevProfiler = DeviceProfiler.getInstance(context);
+    mDevProfiler = new DeviceProfiler(context);
     // mDevProfiler.trackBatteryLevel();
     netProfiler = new NetworkProfiler(context, config);
     netProfiler.registerNetworkStateTrackers();
@@ -193,8 +205,8 @@ public class DFE {
       Log.e(TAG, "Could not close the database: " + e.getMessage());
     }
 
-    // Start the service that will deal with the D2D communication
-    startD2DService();
+    // Start the thread that will deal with the D2D communication
+    startD2DThread();
 
     // Show a spinning dialog while connecting to the Manager and to the clone.
     this.pd = ProgressDialog.show(mContext, "Working...", "Initial network tasks...", true, false);
@@ -359,6 +371,7 @@ public class DFE {
 
       if (config.getGvirtusIp() != null) {
         // Create a gvirtus frontend object that is responsible for executing the CUDA code.
+        publishProgress("Connecting with GVirtuS backend...");
         gVirtusFrontend = new Frontend(config.getGvirtusIp(), config.getGvirtusPort());
       }
 
@@ -389,6 +402,7 @@ public class DFE {
   }
 
   public void onDestroy() {
+    Log.d(TAG, "onDestroy");
     dfeReady = false;
     mDevProfiler.onDestroy();
     netProfiler.onDestroy();
@@ -396,10 +410,37 @@ public class DFE {
     closeConnection();
   }
 
-  private void startD2DService() {
-    Log.i(TAG, "Sending intent to start the D2D service.");
-    Intent d2dServiceIntent = new Intent(mContext, D2DService.class);
+  private void startD2DThread() {
+    Log.i(TAG, "Starting the D2D listening service...");
+    Intent d2dServiceIntent = new Intent(mContext, D2DClientService.class);
     mContext.startService(d2dServiceIntent);
+
+    // This thread will run with a certain frequency to read the D2D devices that are written by the
+    // D2DClientService on the sdcard. This is needed because another DFE may have written the
+    // devices on the file.
+    d2dSetReaderThread = (ScheduledThreadPoolExecutor) Executors.newScheduledThreadPool(5);
+    d2dSetReaderThread.scheduleWithFixedDelay(new D2DSetReader(), 0,
+        D2DClientService.FREQUENCY_READ_D2D_SET, TimeUnit.MILLISECONDS);
+  }
+
+  private class D2DSetReader implements Runnable {
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public void run() {
+      try {
+        Log.i(TAG, "Reading the saved D2D phones...");
+        d2dSetPhones = (Set<PhoneSpecs>) Utils.readObjectFromFile(Constants.FILE_D2D_PHONES);
+        Log.i(TAG, "List of D2D phones:");
+        for (PhoneSpecs p : d2dSetPhones) {
+          Log.i(TAG, p.toString());
+        }
+      } catch (IOException e) {
+        Log.e(TAG, "Error on D2DSetReader while trying to read the saved set of D2D phones: " + e);
+      } catch (ClassNotFoundException e) {
+        Log.e(TAG, "Error on D2DSetReader while trying to read the saved set of D2D phones: " + e);
+      }
+    }
   }
 
   /**
@@ -795,14 +836,11 @@ public class DFE {
 
         totalResult = reduceMethod.invoke(o, new Object[] {partialResults});
       } catch (InterruptedException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
+        Log.e(TAG, "Error on FutureTask while trying to run the method hybrid: " + e);
       } catch (ExecutionException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
+        Log.e(TAG, "Error on FutureTask while trying to run the method hybrid: " + e);
       } catch (InvocationTargetException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
+        Log.e(TAG, "Error on FutureTask while trying to run the method hybrid: " + e);
       }
     } else { // ecexLocation LOCAL or REMOTE
       Future<Object> futureTotalResult =
@@ -811,11 +849,9 @@ public class DFE {
       try {
         totalResult = futureTotalResult.get();
       } catch (InterruptedException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
+        Log.e(TAG, "Error on FutureTask while trying to run the method remotely or locally: " + e);
       } catch (ExecutionException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
+        Log.e(TAG, "Error on FutureTask while trying to run the method remotely or locally: " + e);
       }
     }
 
@@ -843,44 +879,67 @@ public class DFE {
 
       if (execLocation == Constants.LOCATION_LOCAL) {
         try {
-          this.result = executeLocally(m, pValues, o);
+
+          // First try to see if we can offload this task to a more powerful device that is in D2D
+          // distance.
+          // Do this only if we are not connected to a clone, otherwise it becomes a mess.
+          if (!onLine) {
+
+            // I'm sure this cast is correct since it has been us who wrote the object before.
+            try {
+              if (d2dSetPhones != null && d2dSetPhones.size() > 0) {
+                Iterator<PhoneSpecs> it = d2dSetPhones.iterator();
+                // This is the best phone from the D2D ones since the set is sorted and this is the
+                // first element.
+                PhoneSpecs otherPhone = it.next();
+                if (otherPhone.compareTo(myPhoneSpecs) > 0) {
+                  this.result = executeD2D(otherPhone);
+                }
+              }
+            } catch (IOException e) {
+              Log.e(TAG, "Error while trying to run the method D2D: " + e);
+            } catch (ClassNotFoundException e) {
+              Log.e(TAG, "Error while trying to run the method D2D: " + e);
+            } catch (SecurityException e) {
+              Log.e(TAG, "Error while trying to run the method D2D: " + e);
+            } catch (NoSuchMethodException e) {
+              Log.e(TAG, "Error while trying to run the method D2D: " + e);
+            }
+          }
+
+          // If the D2D execution didn't take place or something happened that the execution was
+          // interrupted the result would still be null.
+          if (this.result == null) {
+            this.result = executeLocally(m, pValues, o);
+          }
+
         } catch (IllegalArgumentException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+          Log.e(TAG, "Error while running the method locally: " + e);
         } catch (IllegalAccessException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+          Log.e(TAG, "Error while running the method locally: " + e);
         } catch (InvocationTargetException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+          Log.e(TAG, "Error while running the method locally: " + e);
         }
       } else if (execLocation == Constants.LOCATION_REMOTE) {
         try {
           this.result = executeRemotely(m, pValues, o);
           if (this.result instanceof InvocationTargetException) {
             // The remote execution throwed an exception, try to run the method locally.
-            Log.w(TAG,
-                "The returned result was InvocationTargetException. Running the method locally");
+            Log.w(TAG, "The result was InvocationTargetException. Running the method locally");
             this.result = executeLocally(m, pValues, o);
           }
         } catch (IllegalArgumentException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+          Log.e(TAG, "Error while trying to run the method remotely: " + e);
         } catch (SecurityException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+          Log.e(TAG, "Error while trying to run the method remotely: " + e);
         } catch (IllegalAccessException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+          Log.e(TAG, "Error while trying to run the method remotely: " + e);
         } catch (InvocationTargetException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+          Log.e(TAG, "Error while trying to run the method remotely: " + e);
         } catch (ClassNotFoundException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+          Log.e(TAG, "Error while trying to run the method remotely: " + e);
         } catch (NoSuchMethodException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+          Log.e(TAG, "Error while trying to run the method remotely: " + e);
         }
       }
 
@@ -912,7 +971,7 @@ public class DFE {
       }
 
       ProgramProfiler progProfiler = new ProgramProfiler(mAppName, m.getName());
-      DeviceProfiler devProfiler = DeviceProfiler.getInstance(mContext);
+      DeviceProfiler devProfiler = new DeviceProfiler(mContext);
       NetworkProfiler netProfiler = null;
       Profiler profiler = new Profiler(mRegime, mContext, progProfiler, netProfiler, devProfiler);
 
@@ -934,6 +993,32 @@ public class DFE {
       profiler.stopAndLogExecutionInfoTracking(prepareDataDuration, mPureLocalDuration);
       lastLogRecord = profiler.lastLogRecord;
 
+      return result;
+    }
+
+    /**
+     * Execute the method on a phone that is close to us so that we can connect on D2D mode. If we
+     * are here, it means that this phone is not connected to a clone, so we can define the clone to
+     * be this D2D device.
+     * 
+     * @param otherPhone
+     * @return
+     * @throws IllegalArgumentException
+     * @throws IllegalAccessException
+     * @throws InvocationTargetException
+     * @throws IOException
+     * @throws ClassNotFoundException
+     * @throws NoSuchMethodException
+     * @throws SecurityException
+     */
+    private Object executeD2D(PhoneSpecs otherPhone)
+        throws IllegalArgumentException, IllegalAccessException, InvocationTargetException,
+        IOException, ClassNotFoundException, SecurityException, NoSuchMethodException {
+
+      sClone = new Clone("D2D device", otherPhone.getIp(), config.getClonePort());
+      establishConnection();
+      Object result = executeRemotely(m, pValues, o);
+      closeConnection();
       return result;
     }
 
@@ -967,7 +1052,7 @@ public class DFE {
       }
 
       ProgramProfiler progProfiler = new ProgramProfiler(mAppName, m.getName());
-      DeviceProfiler devProfiler = DeviceProfiler.getInstance(mContext);
+      DeviceProfiler devProfiler = new DeviceProfiler(mContext);
       NetworkProfiler netProfiler = new NetworkProfiler();
       Profiler profiler = new Profiler(mRegime, mContext, progProfiler, netProfiler, devProfiler);
 

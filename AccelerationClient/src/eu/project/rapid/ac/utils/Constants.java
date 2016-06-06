@@ -1,19 +1,17 @@
 /*******************************************************************************
  * Copyright (C) 2015, 2016 RAPID EU Project
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify it under the terms of the
+ * GNU Lesser General Public License as published by the Free Software Foundation; either version
+ * 2.1 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * You should have received a copy of the GNU Lesser General Public License along with this library;
+ * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *******************************************************************************/
 package eu.project.rapid.ac.utils;
 
@@ -65,6 +63,7 @@ public class Constants {
   public static final String SSL_DEFAULT_PASSW = "changeme";
 
   public static final String FILE_OFFLOADED = RAPID_FOLDER + File.separator + "offloaded";
+  public static final String FILE_D2D_PHONES = RAPID_FOLDER + File.separator + "d2d-phones-set.ser";
   public static final String CLONE_ID_FILE = RAPID_FOLDER + File.separator + "cloneId";
   public static final String FACE_PICTURE_FOLDER = RAPID_FOLDER + File.separator + "faceDetection";
   // Memory space problem for amazon clones
@@ -100,6 +99,10 @@ public class Constants {
   public static final String CLONE_BW_TEST_PORT = "[CLONE BW TEST PORT]";
   public static final String CLONE_NAME = "[CLONE NAME]";
   public static final String CLONE_ID = "[CLONE ID]";
+
+  public static final int D2D_BROADCAST_PORT = 7654;
+  public static final int D2D_BROADCAST_INTERVAL = 60 * 1000; // frequency (ms) to broadcast the
+                                                              // hello message
 
   public static final String MANAGER_CONFIG_FILE = "config-manager.cfg";
   public static final String DS_CONFIG_FILE = "config-ds.cfg";

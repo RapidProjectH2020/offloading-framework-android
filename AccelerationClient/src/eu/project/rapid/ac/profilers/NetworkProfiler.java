@@ -1,19 +1,17 @@
 /*******************************************************************************
  * Copyright (C) 2015, 2016 RAPID EU Project
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify it under the terms of the
+ * GNU Lesser General Public License as published by the Free Software Foundation; either version
+ * 2.1 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * You should have received a copy of the GNU Lesser General Public License along with this library;
+ * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *******************************************************************************/
 package eu.project.rapid.ac.profilers;
 
@@ -159,10 +157,11 @@ public class NetworkProfiler {
     // Rule 1: if the number of bytes sent was bigger than 10KB and the ulRate is small then keep
     // it, otherwise throw it
     // Rule 2: if the number of bytes sent was bigger than 50KB then keep the calculated ulRate
-    if (bytes < 10 * 1000)
+    if (bytes < 10 * 1000) {
       return;
-    else if (bytes < 50 * 1000 && ulRate > 250 * 1000)
+    } else if (bytes < 50 * 1000 && ulRate > 250 * 1000) {
       return;
+    }
 
     if (ulRateHistory.size() >= bwWindowMaxLength) {
       ulRateHistory.remove(0);
@@ -184,10 +183,11 @@ public class NetworkProfiler {
     // Rule 1: if the number of bytes sent was bigger than 10KB and the ulRate is small then keep
     // it, otherwise throw it
     // Rule 2: if the number of bytes sent was bigger than 50KB then keep the calculated ulRate
-    if (bytes < 10 * 1000)
+    if (bytes < 10 * 1000) {
       return;
-    else if (bytes < 50 * 1000 && dlRate > 250 * 1000)
+    } else if (bytes < 50 * 1000 && dlRate > 250 * 1000) {
       return;
+    }
 
     if (dlRateHistory.size() >= bwWindowMaxLength)
       dlRateHistory.remove(0);
@@ -355,6 +355,21 @@ public class NetworkProfiler {
 
     Log.d(TAG, "Register Telephony Data Connection State Tracker");
     telephonyManager.listen(listener, PhoneStateListener.LISTEN_DATA_CONNECTION_STATE);
+  }
+
+  /**
+   * Class to be used for measuring the data rate and RTT every 30 minutes.
+   *
+   */
+  private class RTTMeasurer implements Runnable {
+    private static final String TAG = "RTTMeasurer";
+
+    @Override
+    public void run() {
+      Log.i(TAG, "Measuring the RTT");
+      NetworkProfiler.measureRtt();
+      // uploadRateHandler.postDelayed(this, delayRefreshUlRate);
+    }
   }
 
   /**
@@ -588,6 +603,11 @@ public class NetworkProfiler {
     // if (downloadRateHandler != null) {
     // downloadRateHandler.removeCallbacks(downloadRunnable);
     // }
+  }
+
+  public static void measureRtt() {
+    // TODO
+
   }
 
   public static NetworkBWRecord measureDlRate() {
