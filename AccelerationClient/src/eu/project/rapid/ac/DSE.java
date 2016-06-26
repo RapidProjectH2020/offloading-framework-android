@@ -1,19 +1,17 @@
 /*******************************************************************************
  * Copyright (C) 2015, 2016 RAPID EU Project
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify it under the terms of the
+ * GNU Lesser General Public License as published by the Free Software Foundation; either version
+ * 2.1 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * You should have received a copy of the GNU Lesser General Public License along with this library;
+ * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *******************************************************************************/
 package eu.project.rapid.ac;
 
@@ -45,7 +43,7 @@ public class DSE {
   private Context mContext;
   private int userChoice;
 
-  private int programOrientedDecNr = 1;
+  // private int programOrientedDecNr = 1;
 
   DSE(Context context, int userChoice) {
     this.mContext = context;
@@ -89,28 +87,28 @@ public class DSE {
       int dlRate = NetworkProfiler.lastDlRate.getBw();
       int nrIterations = 1;
       boolean shouldOffload = false;
-      double decisionTime = 0;
+      // double decisionTime = 0;
       for (int i = 0; i < nrIterations; i++) {
-        long startDecisionTime = System.currentTimeMillis();
+        // long startDecisionTime = System.currentTimeMillis();
         shouldOffload = shouldOffload(appName, methodName, ulRate, dlRate);
-        decisionTime += (System.currentTimeMillis() - startDecisionTime);
+        // decisionTime += (System.currentTimeMillis() - startDecisionTime);
       }
-      decisionTime /= nrIterations;
+      // decisionTime /= nrIterations;
 
-      if (preOffloadBuffLogFile != null) {
-        try {
-          preOffloadBuffLogFile.append(
-              programOrientedDecNr + "," + decisionTime + "," + System.currentTimeMillis() + "\n");
-        } catch (IOException e) {
-          Log.w(TAG, "Could not write in preLogFile: " + e);
-        } finally {
-          try {
-            preOffloadBuffLogFile.close();
-          } catch (IOException e) {
-            Log.w(TAG, "Error closing preLogFile: " + e);
-          }
-        }
-      }
+      // if (preOffloadBuffLogFile != null) {
+      // try {
+      // preOffloadBuffLogFile.append(
+      // programOrientedDecNr + "," + decisionTime + "," + System.currentTimeMillis() + "\n");
+      // } catch (IOException e) {
+      // Log.w(TAG, "Could not write in preLogFile: " + e);
+      // } finally {
+      // try {
+      // preOffloadBuffLogFile.close();
+      // } catch (IOException e) {
+      // Log.w(TAG, "Error closing preLogFile: " + e);
+      // }
+      // }
+      // }
 
       if (shouldOffload) {
         Log.d(TAG, "Execute Remotely - True");
@@ -182,7 +180,7 @@ public class DSE {
     // then offload the method to see how it goes.
     if (nrRemoteExec == 0) {
 
-      programOrientedDecNr = 1;
+      // programOrientedDecNr = 1;
 
       if (currUlRate > MIN_UL_RATE_OFFLOAD_1_TIME && currDlRate > MIN_DL_RATE_OFFLOAD_1_TIME) {
         Log.i(TAG, "Decision 1: No previous remote executions. Good connectivity.");
@@ -275,7 +273,7 @@ public class DSE {
     for (i = 0; i < nrRemoteExec && remoteTimestamps[i] < lastLocalTimestamp; i++);
     if ((nrRemoteExec - i) >= NR_TIMES_SWITCH_SIDES) {
       Log.i(TAG, "Decision 2: Too many remote executions in a row.");
-      programOrientedDecNr = 2;
+      // programOrientedDecNr = 2;
       return false;
     }
 
@@ -287,8 +285,14 @@ public class DSE {
     for (i = 0; i < nrLocalExec && localTimestamps[i] < lastRemoteTimestamp; i++);
     if ((nrLocalExec - i) >= NR_TIMES_SWITCH_SIDES) {
       Log.i(TAG, "Decision 2: Too many local executions in a row.");
-      programOrientedDecNr = 2;
-      return true;
+      // programOrientedDecNr = 2;
+      if (currUlRate > MIN_UL_RATE_OFFLOAD_1_TIME && currDlRate > MIN_DL_RATE_OFFLOAD_1_TIME) {
+        Log.i(TAG, "Decision 1: No previous remote executions. Good connectivity.");
+        return true;
+      } else {
+        Log.i(TAG, "Decision 1: No previous remote executions. Bad connectivity.");
+        return false;
+      }
     }
 
     // DECISION 3
@@ -351,7 +355,7 @@ public class DSE {
         + meanEnergyRemote2 + "  meanEnergyRemote: " + meanEnergyRemote);
 
     Log.i(TAG, "Decision 3.");
-    programOrientedDecNr = 3;
+    // programOrientedDecNr = 3;
     if (userChoice == Constants.LOCATION_DYNAMIC_TIME) {
       Log.d(TAG, "Making a choice for fast execution");
       return meanDurRemote <= meanDurLocal;
