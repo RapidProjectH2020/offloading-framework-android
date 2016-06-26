@@ -30,7 +30,7 @@ import eu.project.rapid.ac.utils.Constants;
 /**
  * DSE decides whether to execute the requested method locally or remotely.
  */
-class DSE {
+public class DSE {
 
   private static final String TAG = "DSE";
   private static final boolean VERBOSE_LOG = false;
@@ -43,7 +43,7 @@ class DSE {
   private Context mContext;
   private int userChoice;
 
-  private int programOrientedDecNr = 1;
+  // private int programOrientedDecNr = 1;
 
   DSE(Context context, int userChoice) {
     this.mContext = context;
@@ -87,28 +87,28 @@ class DSE {
       int dlRate = NetworkProfiler.lastDlRate.getBw();
       int nrIterations = 1;
       boolean shouldOffload = false;
-      double decisionTime = 0;
+      // double decisionTime = 0;
       for (int i = 0; i < nrIterations; i++) {
-        long startDecisionTime = System.currentTimeMillis();
+        // long startDecisionTime = System.currentTimeMillis();
         shouldOffload = shouldOffload(appName, methodName, ulRate, dlRate);
-        decisionTime += (System.currentTimeMillis() - startDecisionTime);
+        // decisionTime += (System.currentTimeMillis() - startDecisionTime);
       }
-      decisionTime /= nrIterations;
+      // decisionTime /= nrIterations;
 
-      if (preOffloadBuffLogFile != null) {
-        try {
-          preOffloadBuffLogFile.append(
-              programOrientedDecNr + "," + decisionTime + "," + System.currentTimeMillis() + "\n");
-        } catch (IOException e) {
-          Log.w(TAG, "Could not write in preLogFile: " + e);
-        } finally {
-          try {
-            preOffloadBuffLogFile.close();
-          } catch (IOException e) {
-            Log.w(TAG, "Error closing preLogFile: " + e);
-          }
-        }
-      }
+      // if (preOffloadBuffLogFile != null) {
+      // try {
+      // preOffloadBuffLogFile.append(
+      // programOrientedDecNr + "," + decisionTime + "," + System.currentTimeMillis() + "\n");
+      // } catch (IOException e) {
+      // Log.w(TAG, "Could not write in preLogFile: " + e);
+      // } finally {
+      // try {
+      // preOffloadBuffLogFile.close();
+      // } catch (IOException e) {
+      // Log.w(TAG, "Error closing preLogFile: " + e);
+      // }
+      // }
+      // }
 
       if (shouldOffload) {
         Log.d(TAG, "Execute Remotely - True");
@@ -180,7 +180,7 @@ class DSE {
     // then offload the method to see how it goes.
     if (nrRemoteExec == 0) {
 
-      programOrientedDecNr = 1;
+      // programOrientedDecNr = 1;
 
       if (currUlRate > MIN_UL_RATE_OFFLOAD_1_TIME && currDlRate > MIN_DL_RATE_OFFLOAD_1_TIME) {
         Log.i(TAG, "Decision 1: No previous remote executions. Good connectivity.");
@@ -273,7 +273,7 @@ class DSE {
     for (i = 0; i < nrRemoteExec && remoteTimestamps[i] < lastLocalTimestamp; i++);
     if ((nrRemoteExec - i) >= NR_TIMES_SWITCH_SIDES) {
       Log.i(TAG, "Decision 2: Too many remote executions in a row.");
-      programOrientedDecNr = 2;
+      // programOrientedDecNr = 2;
       return false;
     }
 
@@ -285,8 +285,14 @@ class DSE {
     for (i = 0; i < nrLocalExec && localTimestamps[i] < lastRemoteTimestamp; i++);
     if ((nrLocalExec - i) >= NR_TIMES_SWITCH_SIDES) {
       Log.i(TAG, "Decision 2: Too many local executions in a row.");
-      programOrientedDecNr = 2;
-      return true;
+      // programOrientedDecNr = 2;
+      if (currUlRate > MIN_UL_RATE_OFFLOAD_1_TIME && currDlRate > MIN_DL_RATE_OFFLOAD_1_TIME) {
+        Log.i(TAG, "Decision 1: No previous remote executions. Good connectivity.");
+        return true;
+      } else {
+        Log.i(TAG, "Decision 1: No previous remote executions. Bad connectivity.");
+        return false;
+      }
     }
 
     // DECISION 3
@@ -349,7 +355,7 @@ class DSE {
         + meanEnergyRemote2 + "  meanEnergyRemote: " + meanEnergyRemote);
 
     Log.i(TAG, "Decision 3.");
-    programOrientedDecNr = 3;
+    // programOrientedDecNr = 3;
     if (userChoice == Constants.LOCATION_DYNAMIC_TIME) {
       Log.d(TAG, "Making a choice for fast execution");
       return meanDurRemote <= meanDurLocal;

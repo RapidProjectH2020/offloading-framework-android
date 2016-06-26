@@ -15,7 +15,6 @@
  *******************************************************************************/
 package eu.project.rapid.ac.utils;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -25,9 +24,9 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
 import java.io.StreamCorruptedException;
@@ -569,18 +568,40 @@ public class Utils {
     }
   }
 
-  public static String readAssetFileAsString(Context context, String fileName) throws IOException {
-    StringBuilder buf = new StringBuilder();
-    InputStream fileIs = context.getAssets().open(fileName);
-    BufferedReader in = new BufferedReader(new InputStreamReader(fileIs, Charset.defaultCharset()));
-    String str;
-
-    while ((str = in.readLine()) != null) {
-      buf.append(str);
+  public static long copy(InputStream from, OutputStream to) throws IOException {
+    // checkNotNull(from);
+    // checkNotNull(to);
+    byte[] buf = createBuffer();
+    long total = 0;
+    while (true) {
+      int r = from.read(buf);
+      if (r == -1) {
+        break;
+      }
+      to.write(buf, 0, r);
+      total += r;
     }
+    return total;
+  }
 
-    in.close();
+  static byte[] createBuffer() {
+    return new byte[8192];
+  }
 
-    return buf.toString();
+  public static byte[] toByteArray(InputStream in) throws IOException {
+    // Presize the ByteArrayOutputStream since we know how large it will need
+    // to be, unless that value is less than the default ByteArrayOutputStream
+    // size (32).
+    ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(32, in.available()));
+    copy(in, out);
+    return out.toByteArray();
+  }
+
+  public static String readAssetFileAsString(Context context, String fileName) throws IOException {
+    InputStream is = context.getAssets().open(fileName);
+
+    byte[] bytes = toByteArray(is);
+    is.close();
+    return new String(bytes, Charset.forName("UTF-8"));
   }
 }

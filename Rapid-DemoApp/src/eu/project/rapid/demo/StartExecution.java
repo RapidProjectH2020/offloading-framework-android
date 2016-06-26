@@ -16,6 +16,7 @@
 package eu.project.rapid.demo;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
@@ -54,6 +55,9 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
   private RadioGroup executionRadioGroup;
   private Handler handler;
 
+  private TextView gvirtusOutputView;
+  private String gvirtusOutputText;
+
   private String vmIp;
   private DFE dFE;
   private boolean useRapidInfrastructure;
@@ -64,6 +68,8 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.main);
     Log.i(TAG, "onCreate");
+
+    gvirtusOutputView = (TextView) findViewById(R.id.gvirtusOutputView);
 
     vmIp = getIntent().getStringExtra(MainActivity.KEY_VM_IP);
     useRapidInfrastructure =
@@ -262,7 +268,7 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
       for (int i = 0; i < nrTests; i++) {
         Log.i(TAG, "------------ Started running the GVirtuS deviceQuery demo.");
         try {
-          gvirtusDemo.deviceQuery();
+          gvirtusOutputText = gvirtusDemo.deviceQuery();
           Log.i(TAG, "Correctly executed the GVirtuS deviceQuery demo.");
         } catch (IOException e) {
           Log.e(TAG, "Error while running the GVirtuS deviceQuery demo: " + e);
@@ -270,7 +276,8 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
       }
 
       for (int i = 0; i < nrTests; i++) {
-        Log.i(TAG, "------------ Started running the GVirtuS matrixMul demo.");
+        Log.i(TAG,
+            "------------ Started running the GVirtuS matrixMul demo. " + Charset.defaultCharset());
         try {
           gvirtusDemo.matrixMul2();
           Log.i(TAG, "Correctly executed the GVirtuS matrixMul demo.");
@@ -288,6 +295,8 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
       if (pd != null) {
         pd.dismiss();
       }
+      gvirtusOutputView.setText("Correctly executed the GVirtuS deviceQuery demo.");
+      gvirtusOutputView.setText(gvirtusOutputText);
     }
   }
 

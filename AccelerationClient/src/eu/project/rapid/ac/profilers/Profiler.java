@@ -22,11 +22,16 @@ import java.io.IOException;
 import android.content.Context;
 import android.util.Log;
 import eu.project.rapid.ac.db.DatabaseQuery;
+import eu.project.rapid.ac.profilers.phone.Phone;
+import eu.project.rapid.ac.profilers.phone.PhoneHtcDream;
 import eu.project.rapid.ac.utils.Constants;
+
 
 public class Profiler {
 
   private static final String TAG = "Profiler";
+
+  Phone phone;
 
   private ProgramProfiler progProfiler;
   private NetworkProfiler netProfiler;
@@ -42,13 +47,6 @@ public class Profiler {
 
   public LogRecord lastLogRecord;
 
-  private final int MIN_FREQ = 245760; // The minimum frequency for HTC Dream CPU
-  private final int MAX_FREQ = 352000; // The maximum frequency for HTC Dream CPU
-  private long totalEstimatedEnergy;
-  private double estimatedCpuEnergy;
-  private double estimatedScreenEnergy;
-  private double estimatedWiFiEnergy;
-  private double estimated3GEnergy;
 
   // private final int MIN_FREQ = 480000; // The minimum frequency for HTC Hero CPU
   // private final int MAX_FREQ = 528000; // The maximum frequency for HTC Hero CPU
@@ -105,14 +103,20 @@ public class Profiler {
     if (mRegime == REGIME_CLIENT) {
       // Energy model implemented for HTC G1 following PowertTutor
       if (android.os.Build.MODEL.equals(Constants.PHONE_NAME_HTC_G1)) {
-        estimateEnergyConsumption();
+        phone = new PhoneHtcDream(devProfiler, netProfiler, progProfiler);
+
+        // Add here all the cases for the other phones.
+      } else {
+        // By default, if the current phone's call is not implemented yet, use the htc dream.
+        phone = new PhoneHtcDream(devProfiler, netProfiler, progProfiler);
       }
 
-      lastLogRecord.energyConsumption = totalEstimatedEnergy;
-      lastLogRecord.cpuEnergy = estimatedCpuEnergy;
-      lastLogRecord.screenEnergy = estimatedScreenEnergy;
-      lastLogRecord.wifiEnergy = estimatedWiFiEnergy;
-      lastLogRecord.threeGEnergy = estimated3GEnergy;
+      phone.estimateEnergyConsumption();
+      lastLogRecord.energyConsumption = phone.getTotalEstimatedEnergy();
+      lastLogRecord.cpuEnergy = phone.getEstimatedCpuEnergy();
+      lastLogRecord.screenEnergy = phone.getEstimatedScreenEnergy();
+      lastLogRecord.wifiEnergy = phone.getEstimatedWiFiEnergy();
+      lastLogRecord.threeGEnergy = phone.getEstimated3GEnergy();
 
       Log.d(TAG, "Log record - " + lastLogRecord.toString());
 
@@ -164,190 +168,5 @@ public class Profiler {
     } catch (Throwable e) {
       e.printStackTrace();
     }
-  }
-
-  private void estimateEnergyConsumption() {
-    int duration = devProfiler.getSeconds();
-
-    estimatedCpuEnergy = estimateCpuEnergy(duration);
-    Log.d(TAG, "CPU energy: " + estimatedCpuEnergy + " mJ");
-
-    estimatedScreenEnergy = estimateScreenEnergy(duration);
-    Log.d(TAG, "Screen energy: " + estimatedScreenEnergy + " mJ");
-
-    if (lastLogRecord.execLocation.equals("REMOTE") && lastLogRecord.networkType.equals("WIFI")) {
-      estimatedWiFiEnergy = estimateWiFiEnergy(duration);
-      Log.d(TAG, "WiFi energy: " + estimatedWiFiEnergy + " mJ");
-    } else if (lastLogRecord.execLocation.equals("REMOTE")
-        && lastLogRecord.networkType.equals("MOBILE")) {
-      estimated3GEnergy = estimate3GEnergy(duration);
-      Log.d(TAG, "3G energy: " + estimated3GEnergy + " mJ");
-    }
-
-    totalEstimatedEnergy = (long) (estimatedCpuEnergy + estimatedScreenEnergy + estimatedWiFiEnergy
-        + estimated3GEnergy);
-
-    Log.d(TAG, "Total energy: " + totalEstimatedEnergy + " mJ");
-    Log.d(TAG, "-------------------------------------------");
-  }
-
-  /**
-   * Estimate the Power for the CPU every second: P0, P1, P2, ..., Pt<br>
-   * where t is the execution time in seconds.<br>
-   * If we calculate the average power Pm = (P0 + P1 + ... + Pt) / t and multiply<br>
-   * by the execution time we obtain the Energy consumed by the CPU executing the method.<br>
-   * This is: E_cpu = Pm * t which is equal to: E_cpu = P0 + P1 + ... + Pt<br>
-   * NOTE: This is due to the fact that we measure every second.<br>
-   * 
-   * @param duration Duration of method execution
-   * @return The estimated energy consumed by the CPU (mJ)
-   * 
-   */
-  private double estimateCpuEnergy(int duration) {
-    double estimatedCpuEnergy = 0;
-    double betaUh = 4.34;
-    double betaUl = 3.42;
-    double betaCpu = 121.46;
-    byte freqL = 0, freqH = 0;
-    int util;
-    byte cpuON;
-
-    for (int i = 0; i < duration; i++) {
-      util = calculateCpuUtil(i);
-
-      if (devProfiler.getFrequence(i) == MAX_FREQ)
-        freqH = 1;
-      else
-        freqL = 1;
-
-      /**
-       * If the CPU has been in idle state for more than 90 jiffies<br>
-       * then decide to consider it in idle state for all the second (1 jiffie = 1/100 sec)
-       */
-      cpuON = (byte) ((devProfiler.getIdleSystem(i) < 90) ? 1 : 0);
-
-      estimatedCpuEnergy += (betaUh * freqH + betaUl * freqL) * util + betaCpu * cpuON;
-
-      // Log.d(TAG, "util freqH freqL cpuON power: " +
-      // util + " " + freqH + " " + freqL + " " + cpuON +
-      // " " + estimatedCpuEnergy + "mJ");
-
-      // Log.d(TAG, "CPU Energy: " + estimatedCpuEnergy + "mJ");
-
-      freqH = 0;
-      freqL = 0;
-    }
-
-    return estimatedCpuEnergy;
-  }
-
-  private int calculateCpuUtil(int i) {
-    return (int) Math.ceil(100 * devProfiler.getPidCpuUsage(i) / devProfiler.getSystemCpuUsage(i));
-  }
-
-
-  private double estimateScreenEnergy(int duration) {
-    double estimatedScreenEnergy = 0;
-    double betaBrightness = 2.4;
-
-    for (int i = 0; i < duration; i++)
-      estimatedScreenEnergy += betaBrightness * devProfiler.getScreenBrightness(i);
-
-    return estimatedScreenEnergy;
-
-  }
-
-
-  /**
-   * The WiFi interface can be (mainly) in two states: high_state or low_state<br>
-   * Transition from low_state to high_state happens when packet_rate > 15<br>
-   * packet_rate = (nRxPackets + nTxPackets) / s<br>
-   * RChannel: WiFi channel rate<br>
-   * Rdata: WiFi data rate<br>
-   * 
-   * @param duration Duration of method execution
-   * @return The estimated energy consumed by the WiFi interface (mJ)
-   * 
-   */
-  private double estimateWiFiEnergy(int duration) {
-    double estimatedWiFiEnergy = 0;
-    boolean inHighPowerState = false;
-    int nRxPackets, nTxPackets;
-    double betaRChannel;
-    byte betaWiFiLow = 20;
-    double betaWiFiHigh;
-    double Rdata;
-
-    for (int i = 0; i < duration; i++) {
-      nRxPackets = netProfiler.getWiFiRxPacketRate(i);
-      nTxPackets = netProfiler.getWiFiTxPacketRate(i);
-      Rdata = (netProfiler.getUplinkDataRate(i) * 8) / 1000000; // Convert from B/s -> b/s -> Mb/s
-
-      // The Wifi interface transits to the high-power state if the packet rate
-      // is higher than 15 (according to the paper of PowerTutor)
-      // Then the transition to the low-power state is done when the packet rate
-      // is lower than 8
-      if (!inHighPowerState) {
-        if (nRxPackets + nTxPackets > 15) {
-          inHighPowerState = true;
-          betaRChannel = calculateBetaRChannel();
-          betaWiFiHigh = 710 + betaRChannel * Rdata;
-          estimatedWiFiEnergy += betaWiFiHigh;
-        } else
-          estimatedWiFiEnergy += betaWiFiLow;
-      } else {
-        if (nRxPackets + nTxPackets < 8) {
-          inHighPowerState = false;
-          estimatedWiFiEnergy += betaWiFiLow;
-        } else {
-          betaRChannel = calculateBetaRChannel();
-          betaWiFiHigh = 710 + betaRChannel * Rdata;
-          estimatedWiFiEnergy += betaWiFiHigh;
-        }
-      }
-
-      // Log.d(TAG, "nRxPackets nTxPackets: " + nRxPackets + " " + nTxPackets);
-      // Log.d(TAG, "Partial Wifi Energy: " + estimatedWiFiEnergy + " mJ");
-    }
-
-    return estimatedWiFiEnergy;
-  }
-
-  private double calculateBetaRChannel() {
-    // The Channel Rate of WiFi connection (Mbps)
-    int RChannel = netProfiler.getLinkSpeed();
-    return 48 - 0.768 * RChannel;
-  }
-
-  /**
-   * In the powerTutor paper the states of 3G interface are three: <b>idle, cell_fach</b> and
-   * <b>cell_dch</b><br>
-   * Transition from <b>idle</b> to <b>cell_fach</b> happens if there are data to send or receive
-   * <br>
-   * Transition from cell_fach to idle happens if no activity for 4 seconds<br>
-   * Transition from cell_fach to cell_dch happens when uplink_buffer > uplink_queue ore d_b > d_q
-   * <br>
-   * Transition from cell_dch to cell_fach happens if no activity for 6 seconds.
-   * 
-   * @param duration Duration of method execution
-   * @return The estimated energy consumed by the 3G interface (mJ)
-   * 
-   */
-  private double estimate3GEnergy(int duration) {
-    double estimated3GEnergy = 0;
-    int beta3GIdle = 10;
-    int beta3GFACH = 401;
-    int beta3GDCH = 570;
-
-    for (int i = 0; i < duration; i++) {
-      if (netProfiler.get3GActiveState(i) == NetworkProfiler.THREEG_IN_IDLE_STATE)
-        estimated3GEnergy += beta3GIdle;
-      else if (netProfiler.get3GActiveState(i) == NetworkProfiler.THREEG_IN_FACH_STATE)
-        estimated3GEnergy += beta3GFACH;
-      else
-        estimated3GEnergy += beta3GDCH;
-    }
-
-    return estimated3GEnergy;
   }
 }

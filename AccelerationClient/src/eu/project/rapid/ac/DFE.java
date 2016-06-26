@@ -461,7 +461,7 @@ public class DFE {
 
     try {
       dsSocket = new Socket();
-      dsSocket.connect(new InetSocketAddress(config.getDSIp(), config.getDSPort()), 20 * 1000);
+      dsSocket.connect(new InetSocketAddress(config.getDSIp(), config.getDSPort()), 20);
 
       OutputStream os = dsSocket.getOutputStream();
       InputStream is = dsSocket.getInputStream();
@@ -533,7 +533,7 @@ public class DFE {
     try {
       managerSocket = new Socket();
       managerSocket.connect(new InetSocketAddress(config.getManagerIp(), config.getManagerPort()),
-          5 * 1000);
+          5);
 
       OutputStream os = managerSocket.getOutputStream();
       InputStream is = managerSocket.getInputStream();
@@ -595,7 +595,7 @@ public class DFE {
       RapidUtils.sendAnimationMsg(config, RapidMessages.AC_CONNECT_VM);
 
       mSocket = new Socket();
-      mSocket.connect(new InetSocketAddress(sClone.getIp(), sClone.getPort()), 10 * 1000);
+      mSocket.connect(new InetSocketAddress(sClone.getIp(), sClone.getPort()), 10);
 
       mOutStream = mSocket.getOutputStream();
       mInStream = mSocket.getInputStream();
