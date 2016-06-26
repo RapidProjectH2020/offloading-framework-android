@@ -55,9 +55,6 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
   private RadioGroup executionRadioGroup;
   private Handler handler;
 
-  private TextView gvirtusOutputView;
-  private String gvirtusOutputText;
-
   private String vmIp;
   private DFE dFE;
   private boolean useRapidInfrastructure;
@@ -68,8 +65,6 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.main);
     Log.i(TAG, "onCreate");
-
-    gvirtusOutputView = (TextView) findViewById(R.id.gvirtusOutputView);
 
     vmIp = getIntent().getStringExtra(MainActivity.KEY_VM_IP);
     useRapidInfrastructure =
@@ -178,7 +173,7 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
   }
 
   private class VirusTask extends AsyncTask<Void, Void, Integer> {
-    // Show a spinning dialog while scanning for viruses
+    // Show a spinning dialog while solving the puzzle
     ProgressDialog pd = ProgressDialog.show(StartExecution.this, "Working...",
         "Scanning for viruses...", true, false);
 
@@ -268,7 +263,7 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
       for (int i = 0; i < nrTests; i++) {
         Log.i(TAG, "------------ Started running the GVirtuS deviceQuery demo.");
         try {
-          gvirtusOutputText = gvirtusDemo.deviceQuery();
+          gvirtusDemo.deviceQuery();
           Log.i(TAG, "Correctly executed the GVirtuS deviceQuery demo.");
         } catch (IOException e) {
           Log.e(TAG, "Error while running the GVirtuS deviceQuery demo: " + e);
@@ -295,8 +290,6 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
       if (pd != null) {
         pd.dismiss();
       }
-      gvirtusOutputView.setText("Correctly executed the GVirtuS deviceQuery demo.");
-      gvirtusOutputView.setText(gvirtusOutputText);
     }
   }
 

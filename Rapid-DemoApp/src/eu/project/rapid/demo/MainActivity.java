@@ -56,7 +56,6 @@ public class MainActivity extends Activity {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
 
-    // Sokol: bypass all the buttons here and start the App interface directly
     Intent intent = new Intent(this, StartExecution.class);
     startActivity(intent);
 

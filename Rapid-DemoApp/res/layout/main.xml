@@ -20,10 +20,8 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/scrollView1"
     android:layout_width="fill_parent"
-    android:layout_height="fill_parent"
-    android:layout_weight="1"
-    android:background="@android:color/white" 
-    >
+    android:layout_height="wrap_content"
+    android:layout_weight="1" >
 
     <LinearLayout
         android:layout_width="fill_parent"
@@ -36,13 +34,14 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:paddingTop="5dp"
-            android:visibility="gone" >
+            android:visibility="gone"
+             >
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="2"
-                android:gravity="right"
+                android:gravity="end"
                 android:text="@string/nrClones" />
 
             <Spinner
@@ -92,16 +91,14 @@
             android:gravity="center_vertical"
             android:paddingTop="2dp"
             android:text="@string/chooseOptimization"
-            android:textColor="@android:color/holo_blue_dark"
-            android:visibility="gone" />
+            android:textColor="@android:color/holo_blue_dark" />
 
         <RadioGroup
             android:id="@+id/executionRadioGroup"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingBottom="15dp"
-            android:visibility="gone" >
+            android:paddingBottom="15dp" >
 
             <RadioButton
                 android:id="@+id/radio_local"
@@ -166,9 +163,9 @@
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
-            android:padding="5dp"
+            android:paddingBottom="5dp"
+            android:paddingTop="2dp"
             android:text="@string/chooseApplication"
-            android:visibility="gone"
             android:textColor="@android:color/holo_blue_dark" />
 
         <!--
@@ -211,8 +208,7 @@
         <LinearLayout
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:visibility="gone" >
+            android:orientation="horizontal" >
 
             <Button
                 android:id="@+id/cpuLoader1"
@@ -242,8 +238,7 @@
         <LinearLayout
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:visibility="gone" >
+            android:orientation="horizontal" >
 
             <TextView
                 android:layout_width="wrap_content"
@@ -278,9 +273,8 @@
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
             android:onClick="onClickJni1"
-            android:text="@string/jni1"
-            android:visibility="gone" />
-
+            android:text="@string/jni1" />
+        
         <Button
             android:id="@+id/gvirtus"
             android:layout_width="fill_parent"
@@ -293,8 +287,7 @@
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
             android:onClick="onClickVirusScanning"
-            android:text="@string/virusScanning"
-            android:visibility="gone" />
+            android:text="@string/virusScanning" />
 
         <TextView
             android:id="@+id/textVmConnectionStatus"
@@ -304,8 +297,7 @@
             android:paddingTop="10dp"
             android:text="@string/textVmDisconnected"
             android:textColor="@android:color/holo_red_dark"
-            android:textSize="18sp"
-            android:visibility="gone" />
+            android:textSize="18sp" />
 
         <!--
         <TextView
@@ -366,16 +358,6 @@
             android:onClick="onTestReceiveBytes"
             android:text="@string/testReceiveBytes" />
         -->
-
-        <TextView
-            android:id="@+id/gvirtusOutputView"
-            android:layout_width="fill_parent"
-            android:layout_height="fill_parent"
-            android:layout_gravity="fill_vertical"
-            android:layout_margin="5dp"
-            android:background="@android:color/white"
-            android:padding="5dp"
-            android:textColor="@android:color/holo_green_dark" />
     </LinearLayout>
 
 </ScrollView>
