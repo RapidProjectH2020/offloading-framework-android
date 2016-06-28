@@ -293,6 +293,31 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
     }
   }
 
+  public void onClickDseTesting(View v) {
+    new DseTester().execute();
+  }
+
+  private class DseTester extends AsyncTask<Void, Void, Void> {
+    // Show a spinning dialog while running the DSE demo
+    ProgressDialog pd = ProgressDialog.show(StartExecution.this, "Working...",
+        "Running the DSE test...", true, false);
+
+    @Override
+    protected Void doInBackground(Void... params) {
+      dFE.testDseWithDbCache();
+      dFE.testDseWithDb();
+      return null;
+    }
+
+    @Override
+    protected void onPostExecute(Void result) {
+      Log.i(TAG, "Finished DSE testing");
+      if (pd != null) {
+        pd.dismiss();
+      }
+    }
+  }
+
   public void onRadioExecLocationChecked(View radioButton) {
     switch (radioButton.getId()) {
 
@@ -304,9 +329,9 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
         dFE.setUserChoice(Constants.LOCATION_REMOTE);
         break;
 
-      case R.id.radio_hybrid:
-        dFE.setUserChoice(Constants.LOCATION_HYBRID);
-        break;
+      // case R.id.radio_hybrid:
+      // dFE.setUserChoice(Constants.LOCATION_HYBRID);
+      // break;
 
       case R.id.radio_exec_time:
         dFE.setUserChoice(Constants.LOCATION_DYNAMIC_TIME);

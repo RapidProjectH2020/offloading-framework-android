@@ -20,6 +20,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -54,6 +55,7 @@ public class Utils {
   private static final String TAG = "RapidUtils";
   private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
   private final static Map<Character, Integer> hexToDec = new HashMap<Character, Integer>();
+  private static Object syncFeatureObject = new Object();
 
   static {
     hexToDec.put('A', 10);
@@ -187,15 +189,15 @@ public class Utils {
    * the lock file. After writing the object the lock is released, so that other processes that want
    * to read the file can access it by getting the lock.
    * 
-   * @param fileName The full path of the file where to write the object. If the file exists it will
-   *        first be deleted and the created from scratch.
+   * @param filePath The full path of the file where to write the object. If the file exists it will
+   *        first be deleted and then created from scratch.
    * @param obj The object to write on the file.
    * @throws IOException
    */
-  public static void writeObjectToFile(String fileName, Object obj) throws IOException {
+  public static void writeObjectToFile(String filePath, Object obj) throws IOException {
     // Get a lock on the lockFile so that concurrent DFEs don't mess with each other by
     // reading/writing the d2dSetFile.
-    File lockFile = new File(fileName + ".lock");
+    File lockFile = new File(filePath + ".lock");
     // Create a FileChannel that can read and write that file.
     // This will create the file if it doesn't exit.
     RandomAccessFile file = new RandomAccessFile(lockFile, "rw");
@@ -206,7 +208,7 @@ public class Utils {
     FileLock lock = f.lock();
 
     // Now we have the lock, so we can write on the file
-    File outFile = new File(fileName);
+    File outFile = new File(filePath);
     if (outFile.exists()) {
       outFile.delete();
     }
@@ -225,18 +227,18 @@ public class Utils {
    * Reads the previously serialized object from the <code>filename</code>.<br>
    * This method will try to get a <b>non blocking lock</b> on a lock file.
    * 
-   * @param fileName The full path of the file from where to read the object.
+   * @param filePath The full path of the file from where to read the object.
    * @return The serialized object previously written using the method
    *         <code>writeObjectToFile</code>
    * @throws IOException
    * @throws ClassNotFoundException
    */
-  public static Object readObjectFromFile(String fileName)
+  public static Object readObjectFromFile(String filePath)
       throws IOException, ClassNotFoundException {
     Object obj = null;
 
     // First try to get the lock on a lock file
-    File lockFile = new File(fileName + ".lock");
+    File lockFile = new File(filePath + ".lock");
     if (!lockFile.exists()) {
       // It means that no other process has written an object before.
       return null;
@@ -252,7 +254,7 @@ public class Utils {
     FileLock lock = f.lock();
 
     // Now we have the lock, so we can read from the file
-    File inFile = new File(fileName);
+    File inFile = new File(filePath);
     FileInputStream fis = new FileInputStream(inFile);
     ObjectInputStream ois = new ObjectInputStream(fis);
     obj = ois.readObject();
@@ -603,5 +605,63 @@ public class Utils {
     byte[] bytes = toByteArray(is);
     is.close();
     return new String(bytes, Charset.forName("UTF-8"));
+  }
+
+
+  /**
+   * Write an object to the internal memory of this application. We will use this method to store
+   * the features of the user so that other components of our application can read them. The object
+   * will then be read using the method <code>readObjectFromInternalFile</code>. We synchronize the
+   * writing and reading process so that we don't end up reading a partial object.
+   * 
+   * @param context The context of the application. Needed to access the internal file directory.
+   * @param o The object to store.
+   * @param fileName The name of the file where to store the object.
+   * @throws IOException
+   */
+  public static void saveObjectToInternalFile(Context context, Object o, String fileName)
+      throws IOException {
+    File f = new File(context.getFilesDir(), fileName);
+
+    synchronized (syncFeatureObject) {
+      if (f.exists()) {
+        if (f.delete()) {
+          Log.i(TAG, "File " + f.getName() + " deleted");
+        } else {
+          Log.i(TAG, "Could not delete file " + f.getName() + " (maybe it doesn't exist)");
+        }
+      }
+
+      if (f.createNewFile()) {
+        FileOutputStream fos = new FileOutputStream(f);
+        ObjectOutputStream oos = new ObjectOutputStream(fos);
+        oos.writeObject(o);
+        oos.close();
+      }
+    }
+  }
+
+  /**
+   *
+   * @param context The context of the application. Needed to access the internal file directory.
+   * @param fileName The name of the file where the object was saved before.
+   * @return The object that was read from the file.
+   * @throws IOException
+   * @throws ClassNotFoundException
+   */
+  public static Object readObjectFromInternalFile(Context context, String fileName)
+      throws IOException, ClassNotFoundException {
+    File f = new File(context.getFilesDir(), fileName);
+
+    synchronized (syncFeatureObject) {
+      if (!f.exists()) {
+        throw new FileNotFoundException("File " + fileName + " doesn't exist");
+      }
+
+      ObjectInputStream ois = new ObjectInputStream(new FileInputStream(f));
+      Object o = ois.readObject();
+      ois.close();
+      return o;
+    }
   }
 }

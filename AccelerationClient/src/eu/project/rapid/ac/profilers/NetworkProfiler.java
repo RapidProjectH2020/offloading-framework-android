@@ -40,6 +40,7 @@ import android.telephony.TelephonyManager;
 import android.util.Log;
 import eu.project.rapid.common.Configuration;
 import eu.project.rapid.common.RapidMessages;
+import eu.project.rapid.common.RapidUtils;
 
 /**
  * Network information profiler
@@ -250,10 +251,12 @@ public class NetworkProfiler {
     // Used by the Energy model implemented for HTC Dream (G1) based on PowerTutor paper
     // No need to start the profilers on not supported phones
     // if (android.os.Build.MODEL.equals(RapidConstants.PHONE_NAME_HTC_G1)) {
-    if (currentNetworkTypeName.equals("WIFI")) {
-      calculateWifiRxTxPackets();
-    } else {
-      calculate3GStates();
+    if (telephonyManager != null) {
+      if (currentNetworkTypeName.equals("WIFI")) {
+        calculateWifiRxTxPackets();
+      } else {
+        calculate3GStates();
+      }
     }
     // }
   }
@@ -267,9 +270,11 @@ public class NetworkProfiler {
       stopReadingFiles = true;
     }
 
-    // Need this for energy estimation only when using Dream phone
-    calculatePacketRate();
-    calculateUplinkDataRate();
+    // Need this for energy estimation
+    if (telephonyManager != null) {
+      calculatePacketRate();
+      calculateUplinkDataRate();
+    }
 
     rxBytes = getProcessRxBytes() - startRxBytes;
     txBytes = getProcessTxBytes() - startTxBytes;
@@ -629,48 +634,43 @@ public class NetworkProfiler {
       os.write(RapidMessages.DOWNLOAD_FILE);
 
       new Thread(new Runnable() {
-
         @Override
         public void run() {
           try {
             Thread.sleep(3000);
           } catch (InterruptedException e1) {
           } finally {
-            try {
-              clientSocket.close();
-            } catch (IOException e) {
-            }
+            RapidUtils.closeQuietly(clientSocket);
           }
         }
       }).start();
 
       time = System.nanoTime();
-      rxBytes = NetworkProfiler.getProcessRxBytes();
+      // rxBytes = NetworkProfiler.getProcessRxBytes();
       while (true) {
-        is.read(buffer);
+        rxBytes += is.read(buffer);
         os.write(1);
       }
 
     } catch (UnknownHostException e) {
+      Log.w(TAG, "Exception while measuring download rate: " + e);
     } catch (SocketException e) {
+      Log.w(TAG, "Exception while measuring download rate: " + e);
     } catch (IOException e) {
+      Log.w(TAG, "Exception while measuring download rate: " + e);
     } finally {
 
       time = System.nanoTime() - time;
-      rxBytes = NetworkProfiler.getProcessRxBytes() - rxBytes;
+      // rxBytes = NetworkProfiler.getProcessRxBytes() - rxBytes;
 
       if (os != null) {
 
         // If the streams are null it means that no measurement was performed
         addNewDlRateEstimate(rxBytes, time);
 
-        try {
-          os.close();
-          is.close();
-          dis.close();
-        } catch (IOException e) {
-          Log.w("", "Could not close streams");
-        }
+        RapidUtils.closeQuietly(os);
+        RapidUtils.closeQuietly(is);
+        RapidUtils.closeQuietly(dis);
       }
     }
     return lastDlRate;
@@ -685,9 +685,9 @@ public class NetworkProfiler {
     long txTime = 0;
     long txBytes = 0;
 
+    Socket clientSocket = null;
     try {
-      final Socket clientSocket =
-          new Socket(config.getClone().getIp(), config.getClonePortBandwidthTest());
+      clientSocket = new Socket(config.getClone().getIp(), config.getClonePortBandwidthTest());
       os = clientSocket.getOutputStream();
       is = clientSocket.getInputStream();
       dis = new DataInputStream(is);
@@ -700,22 +700,17 @@ public class NetworkProfiler {
       }
 
     } catch (UnknownHostException e) {
+      Log.w(TAG, "Exception while measuring upload rate: " + e);
     } catch (SocketException e) {
-      Log.i(TAG, "");
+      Log.w(TAG, "Exception while measuring upload rate: " + e);
     } catch (IOException e) {
+      Log.w(TAG, "Exception while measuring upload rate: " + e);
     } finally {
+      RapidUtils.closeQuietly(os);
+      RapidUtils.closeQuietly(is);
+      RapidUtils.closeQuietly(dis);
+      RapidUtils.closeQuietly(clientSocket);
 
-      if (os != null) {
-        try {
-          os.close();
-          is.close();
-          dis.close();
-        } catch (IOException e) {
-          Log.w("", "Could not close streams");
-        }
-      }
-
-      Socket clientSocket = null;
       try {
         clientSocket = new Socket(config.getClone().getIp(), config.getClonePortBandwidthTest());
         os = clientSocket.getOutputStream();
@@ -729,20 +724,16 @@ public class NetworkProfiler {
         addNewUlRateEstimate(txBytes, txTime);
 
       } catch (UnknownHostException e) {
+        Log.w(TAG, "Exception while measuring upload rate: " + e);
       } catch (IOException e) {
+        Log.w(TAG, "Exception while measuring upload rate: " + e);
       } catch (Exception e) {
+        Log.w(TAG, "Exception while measuring upload rate: " + e);
       } finally {
-        if (os != null) {
-          try {
-            os.close();
-            is.close();
-            dis.close();
-            clientSocket.close();
-          } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-          }
-        }
+        RapidUtils.closeQuietly(os);
+        RapidUtils.closeQuietly(is);
+        RapidUtils.closeQuietly(dis);
+        RapidUtils.closeQuietly(clientSocket);
       }
     }
     return lastUlRate;

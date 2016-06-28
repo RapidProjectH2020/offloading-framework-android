@@ -56,9 +56,6 @@ public class MainActivity extends Activity {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
 
-    Intent intent = new Intent(this, StartExecution.class);
-    startActivity(intent);
-
     radioGroupUseRapid = (RadioGroup) findViewById(R.id.radioGroupUseRapid);
     radioGroupUseRapid.setOnCheckedChangeListener(new OnUseRapidRadioChecked());
 

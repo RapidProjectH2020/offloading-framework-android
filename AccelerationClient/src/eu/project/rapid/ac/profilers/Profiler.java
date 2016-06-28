@@ -21,9 +21,11 @@ import java.io.IOException;
 
 import android.content.Context;
 import android.util.Log;
+import eu.project.rapid.ac.db.DBCache;
+import eu.project.rapid.ac.db.DBEntry;
 import eu.project.rapid.ac.db.DatabaseQuery;
 import eu.project.rapid.ac.profilers.phone.Phone;
-import eu.project.rapid.ac.profilers.phone.PhoneHtcDream;
+import eu.project.rapid.ac.profilers.phone.PhoneFactory;
 import eu.project.rapid.ac.utils.Constants;
 
 
@@ -101,16 +103,7 @@ public class Profiler {
     lastLogRecord.execLocation = mLocation;
 
     if (mRegime == REGIME_CLIENT) {
-      // Energy model implemented for HTC G1 following PowertTutor
-      if (android.os.Build.MODEL.equals(Constants.PHONE_NAME_HTC_G1)) {
-        phone = new PhoneHtcDream(devProfiler, netProfiler, progProfiler);
-
-        // Add here all the cases for the other phones.
-      } else {
-        // By default, if the current phone's call is not implemented yet, use the htc dream.
-        phone = new PhoneHtcDream(devProfiler, netProfiler, progProfiler);
-      }
-
+      phone = PhoneFactory.getPhone(devProfiler, netProfiler, progProfiler);
       phone.estimateEnergyConsumption();
       lastLogRecord.energyConsumption = phone.getTotalEstimatedEnergy();
       lastLogRecord.cpuEnergy = phone.getEstimatedCpuEnergy();
@@ -124,7 +117,8 @@ public class Profiler {
         synchronized (this) {
           if (logFileWriter == null) {
             File logFile = new File(Constants.LOG_FILE_NAME);
-            boolean logFileCreated = logFile.createNewFile(); // Try creating new, if doesn't exist
+            // Try creating new, if doesn't exist
+            boolean logFileCreated = logFile.createNewFile();
             logFileWriter = new FileWriter(logFile, true);
             if (logFileCreated) {
               logFileWriter.append(LogRecord.LOG_HEADERS + "\n");
@@ -138,15 +132,27 @@ public class Profiler {
         Log.w(TAG, "Not able to create the logFile " + Constants.LOG_FILE_NAME + ": " + e);
       }
 
-      updateDB();
+      // updateDB();
+      updateDbCache();
     }
 
     return lastLogRecord;
   }
 
+  private void updateDbCache() {
+    DBCache dbCache = DBCache.getDbCache();
+    // public DBEntry(String appName, String methodName, String execLocation, String networkType,
+    // String networkSubType, int ulRate, int dlRate, long execDuration, long execEnergy)
+    DBEntry dbEntry =
+        new DBEntry(lastLogRecord.appName, lastLogRecord.methodName, lastLogRecord.execLocation,
+            lastLogRecord.networkType, lastLogRecord.networkSubtype, lastLogRecord.ulRate,
+            lastLogRecord.dlRate, lastLogRecord.execDuration, lastLogRecord.energyConsumption);
+    dbCache.insertEntry(dbEntry);
+  }
+
   private void updateDB() {
 
-    DatabaseQuery query = new DatabaseQuery(mContext);
+    DatabaseQuery query = new DatabaseQuery(mContext, Constants.DEFAULT_DB_NAME);
 
     // Insert the new record in the DB
     query.appendData(DatabaseQuery.KEY_APP_NAME, lastLogRecord.appName);

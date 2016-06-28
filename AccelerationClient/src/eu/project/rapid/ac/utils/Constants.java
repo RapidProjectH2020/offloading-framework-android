@@ -23,6 +23,11 @@ public class Constants {
 
   public static final int MAX_NUM_CLIENTS = 32;
 
+  public static final String DEFAULT_DB_NAME = "Rapid-DB.db";
+  // The number of recent method executions to keep in DB so that they can be used for offloading
+  // decision.
+  public static final int MAX_METHOD_EXEC_HISTORY = 50;
+
   // Offloading decision related variables
   // public static final int LOCATION_NOT_DECIDED = -1;
   public static final int LOCATION_LOCAL = 1;
@@ -64,6 +69,7 @@ public class Constants {
 
   public static final String FILE_OFFLOADED = RAPID_FOLDER + File.separator + "offloaded";
   public static final String FILE_D2D_PHONES = RAPID_FOLDER + File.separator + "d2d-phones-set.ser";
+  public static final String FILE_DB_CACHE = RAPID_FOLDER + File.separator + "dbCache.ser";
   public static final String CLONE_ID_FILE = RAPID_FOLDER + File.separator + "cloneId";
   public static final String FACE_PICTURE_FOLDER = RAPID_FOLDER + File.separator + "faceDetection";
   // Memory space problem for amazon clones

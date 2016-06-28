@@ -1,19 +1,17 @@
 /*******************************************************************************
  * Copyright (C) 2015, 2016 RAPID EU Project
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify it under the terms of the
+ * GNU Lesser General Public License as published by the Free Software Foundation; either version
+ * 2.1 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * You should have received a copy of the GNU Lesser General Public License along with this library;
+ * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *******************************************************************************/
 package eu.project.rapid.as;
 
@@ -28,6 +26,7 @@ import java.util.Random;
 import android.util.Log;
 import eu.project.rapid.common.Configuration;
 import eu.project.rapid.common.RapidMessages;
+import eu.project.rapid.common.RapidUtils;
 
 /**
  * Listen for phone connections for measuring the data rate. The phone will send/receive some data
@@ -50,7 +49,6 @@ public class NetworkProfilerServer implements Runnable {
   public NetworkProfilerServer(Configuration config) {
     this.config = config;
     buffer = new byte[BUFFER_SIZE];
-    new Random().nextBytes(buffer);
   }
 
   @Override
@@ -124,6 +122,7 @@ public class NetworkProfilerServer implements Runnable {
               break;
 
             case RapidMessages.DOWNLOAD_FILE:
+              new Random().nextBytes(buffer);
               // Used for measuring the dlRate on the phone
               while (true) {
                 os.write(buffer);
@@ -139,17 +138,10 @@ public class NetworkProfilerServer implements Runnable {
         if (request == RapidMessages.UPLOAD_FILE)
           totalTimeBytesRead = System.nanoTime() - totalTimeBytesRead;
 
-        if (os != null) {
-          try {
-            os.close();
-            dos.close();
-            is.close();
-            clientSocket.close();
-          } catch (IOException e) {
-          }
-        }
+        RapidUtils.closeQuietly(os);
+        RapidUtils.closeQuietly(dos);
+        RapidUtils.closeQuietly(is);
       }
     }
   }
-
 }

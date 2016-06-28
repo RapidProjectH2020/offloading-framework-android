@@ -32,7 +32,7 @@
     <string name="benchmark2">Benchmark Bundle 2</string>
     <string name="allBundles">All Bundles</string>
     <string name="puzzleScenariosTitle">Puzzle Scenarios</string>
-    <string name="chooseApplication">Testing GPU code offloading</string>
+    <string name="chooseApplication">Testing code offloading</string>
     <string name="chooseOptimization">Choose what to optimize by offloading</string>
     <string name="faceDetection">Face Detection</string>
     <string name="virusScanning">Virus Scanning</string>
@@ -73,6 +73,8 @@
 	<string name="textVmConnected">Connected to VM</string>
 	<string name="textVmDisconnected">Not Connected to VM</string>
 	
+	<string name="textTestImplementation">Testing DSE and DFE implementation</string>
+	<string name="dseTestButtonText">Test DSE performance</string>
 	<string name="downloadFile">Download file from Manager</string>
 	<string name="uploadFile">Upload file to Manager</string>
 	<string name="testConnection">Connect 1000 times to clone</string>

@@ -34,8 +34,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:paddingTop="5dp"
-            android:visibility="gone"
-             >
+            android:visibility="gone" >
 
             <TextView
                 android:layout_width="wrap_content"
@@ -104,7 +103,6 @@
                 android:id="@+id/radio_local"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:checked="true"
                 android:onClick="onRadioExecLocationChecked"
                 android:text="@string/radioButtonStaticLocal" />
 
@@ -112,7 +110,6 @@
                 android:id="@+id/radio_remote"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:enabled="false"
                 android:onClick="onRadioExecLocationChecked"
                 android:text="@string/radioButtonStaticRemote" />
 
@@ -120,7 +117,6 @@
                 android:id="@+id/radio_exec_time"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:enabled="false"
                 android:onClick="onRadioExecLocationChecked"
                 android:text="@string/radioButtonTime" />
 
@@ -128,7 +124,6 @@
                 android:id="@+id/radio_energy"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:enabled="false"
                 android:onClick="onRadioExecLocationChecked"
                 android:text="@string/radioButtonEnergy" />
 
@@ -136,17 +131,19 @@
                 android:id="@+id/radio_exec_time_energy"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:enabled="false"
+                android:checked="true"
                 android:onClick="onRadioExecLocationChecked"
                 android:text="@string/radioButtonTimeEnergy" />
 
-            <RadioButton
+            <!--
+                 <RadioButton
                 android:id="@+id/radio_hybrid"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:enabled="false"
                 android:onClick="onRadioExecLocationChecked"
                 android:text="@string/radioButtonHybrid" />
+            -->
         </RadioGroup>
 
         <EditText
@@ -274,7 +271,7 @@
             android:layout_height="wrap_content"
             android:onClick="onClickJni1"
             android:text="@string/jni1" />
-        
+
         <Button
             android:id="@+id/gvirtus"
             android:layout_width="fill_parent"
@@ -298,6 +295,24 @@
             android:text="@string/textVmDisconnected"
             android:textColor="@android:color/holo_red_dark"
             android:textSize="18sp" />
+
+        <View style="@style/Divider" />
+
+        <TextView
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:paddingBottom="5dp"
+            android:paddingTop="2dp"
+            android:text="@string/textTestImplementation"
+            android:textColor="@android:color/holo_blue_dark" />
+        
+         <Button
+            android:id="@+id/dseTestButton"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:onClick="onClickDseTesting"
+            android:text="@string/dseTestButtonText" />
 
         <!--
         <TextView

@@ -20,6 +20,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
@@ -41,6 +42,7 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.util.Iterator;
+import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
@@ -75,6 +77,8 @@ import android.preference.PreferenceManager;
 import android.util.Log;
 import eu.project.rapid.ac.d2d.D2DClientService;
 import eu.project.rapid.ac.d2d.PhoneSpecs;
+import eu.project.rapid.ac.db.DBCache;
+import eu.project.rapid.ac.db.DBEntry;
 import eu.project.rapid.ac.db.DatabaseQuery;
 import eu.project.rapid.ac.profilers.DeviceProfiler;
 import eu.project.rapid.ac.profilers.LogRecord;
@@ -110,7 +114,7 @@ public class DFE {
   public static final int REGIME_CLIENT = 1;
   public static final int REGIME_SERVER = 2;
   public static int commType = DFE.COMM_CLEAR;
-  private int userChoice = Constants.LOCATION_LOCAL;
+  private int userChoice = Constants.LOCATION_DYNAMIC_TIME_ENERGY;
   private double localDataFraction = 1;
   private Method prepareDataMethod = null;
 
@@ -179,6 +183,7 @@ public class DFE {
     sClone = clone;
     this.myPhoneSpecs = PhoneSpecs.getPhoneSpecs(mContext);
 
+    createRapidFoldersIfNotExist();
     readConfigurationFile();
     initializeCrypto();
 
@@ -197,7 +202,7 @@ public class DFE {
     netProfiler.registerNetworkStateTrackers();
 
     // Create the database
-    DatabaseQuery query = new DatabaseQuery(context);
+    DatabaseQuery query = new DatabaseQuery(context, Constants.DEFAULT_DB_NAME);
     try {
       // Close the database
       query.destroy();
@@ -224,14 +229,23 @@ public class DFE {
     mRegime = REGIME_SERVER;
   }
 
-  private void readConfigurationFile() {
-
+  private void createRapidFoldersIfNotExist() {
     File rapidDir = new File(Constants.RAPID_FOLDER);
     if (!rapidDir.exists()) {
       if (!rapidDir.mkdirs()) {
         Log.w(TAG, "Could not create the Rapid folder: " + Constants.RAPID_FOLDER);
       }
     }
+
+    File rapidTestDir = new File(Constants.TEST_LOGS_FOLDER);
+    if (!rapidTestDir.exists()) {
+      if (!rapidTestDir.mkdirs()) {
+        Log.w(TAG, "Could not create the Rapid folder: " + Constants.TEST_LOGS_FOLDER);
+      }
+    }
+  }
+
+  private void readConfigurationFile() {
 
     try {
       // Read the config file to read the IP and port of Manager
@@ -406,7 +420,7 @@ public class DFE {
     dfeReady = false;
     mDevProfiler.onDestroy();
     netProfiler.onDestroy();
-
+    DBCache.saveDbCache();
     closeConnection();
   }
 
@@ -1074,7 +1088,7 @@ public class DFE {
       } catch (Exception e) {
         // No such host exists, execute locally
         Log.e(TAG, "REMOTE ERROR: " + m.getName() + ": " + e);
-        e.printStackTrace();
+        // e.printStackTrace();
         result = executeLocally(m, pValues, o);
         ConnectionRepair repair = new ConnectionRepair();
         repair.start();
@@ -1257,7 +1271,8 @@ public class DFE {
       synchronized (this) {
         if (!onLine) {
           // Show a spinning dialog while connecting to the Manager and to the clone.
-          pd = ProgressDialog.show(mContext, "Working..", "Initial network tasks...", true, false);
+          // pd = ProgressDialog.show(mContext, "Working..", "Initial network tasks...", true,
+          // false);
           (new InitialNetworkTasks()).execute(sClone);
 
           // establishConnection();
@@ -1340,6 +1355,236 @@ public class DFE {
   public void setLocalDataFraction(double localDataFraction) {
     this.localDataFraction = localDataFraction;
   }
+
+  // Use these values in the experiments for the DSE testing.
+  private int dseTestMaxNrMethods = 90;
+  private int dseTestMinNrMethods = 10;
+  private int dseTestStepNrMethods = 10;
+  private int dseTestNrIterations = 1000;
+  private Random dseTestRandom = new Random();
+
+  /**
+   * Used to perform experimental testing on the performance of the DSE.
+   */
+  public void testDseWithDbCache() {
+
+    // Create a file where to write the measured duration of the dse queries
+    for (int nrMethods = dseTestMinNrMethods; nrMethods <= dseTestMaxNrMethods; nrMethods +=
+        dseTestStepNrMethods) {
+      // Create a db containing nrMethods*50 rows
+      createAndPopulateTestDbCache(nrMethods);
+      DSE dse = new DSE(mContext, Constants.LOCATION_DYNAMIC_TIME_ENERGY);
+
+      String dseTestFilePath =
+          Constants.TEST_LOGS_FOLDER + File.separator + "dse-dbcache-tests-" + nrMethods + ".dat";
+      BufferedWriter dseTestFileBuf =
+          createMeasurementFile(dseTestFilePath, "# nrMethods\t queryDuration (ms)\n");
+
+      // Perform queries on the DB and measure the duration of the queries in ms
+      for (int i = 0; i < dseTestNrIterations; i++) {
+        int methodIndex = dseTestRandom.nextInt(nrMethods);
+        long t0 = System.nanoTime();
+        dse.findExecLocation("appName-" + methodIndex, "methodName-" + methodIndex);
+        double duration = (System.nanoTime() - t0) / 1000000.0;
+        if (dseTestFileBuf != null) {
+          try {
+            dseTestFileBuf.append(nrMethods + "\t" + duration + "\n");
+          } catch (IOException e) {
+            Log.w(TAG, "Could not write in dseTestFile: " + e);
+          }
+        }
+      }
+
+      if (dseTestFileBuf != null) {
+        try {
+          dseTestFileBuf.close();
+        } catch (IOException e) {
+          Log.w(TAG, "Error closing dseTestFileBuf: " + e);
+        }
+      }
+    }
+  }
+
+  private void createAndPopulateTestDbCache(int nrMethods) {
+    // First create a testing DB
+    DBCache dbCache = DBCache.getDbCache();
+    dbCache.clearDbCache();
+
+    // Insert some dummy entries in the database cache to populate it.
+    int[] nrRemainingRowsToInsert = new int[nrMethods];
+    for (int i = 0; i < nrMethods; i++) {
+      nrRemainingRowsToInsert[i] = Constants.MAX_METHOD_EXEC_HISTORY;
+    }
+
+    for (int i = 0; i < Constants.MAX_METHOD_EXEC_HISTORY * nrMethods;) {
+      int j = dseTestRandom.nextInt(nrMethods);
+      if (nrRemainingRowsToInsert[j] > 0) {
+        dbCache.insertEntry(createRandomDbEntry("appName-" + j, "methodName-" + j));
+        nrRemainingRowsToInsert[j]--;
+        i++;
+      }
+    }
+
+    Log.i(TAG,
+        String.format("Created DB cache with %d entries and populated with %d random measurements",
+            dbCache.size(), dbCache.nrElements()));
+    assert dbCache.size() == nrMethods;
+  }
+
+  private BufferedWriter createMeasurementFile(String filePath, String header) {
+    File dseTestFile = new File(filePath);
+    BufferedWriter dseTestFileBuf = null;
+    try {
+      dseTestFile.delete();
+      boolean createdNewFile = dseTestFile.createNewFile();
+      dseTestFileBuf = new BufferedWriter(new FileWriter(dseTestFile, true));
+      if (createdNewFile) {
+        dseTestFileBuf.write(header);
+      } else {
+        Log.e(TAG, "Could not create dseTestFile " + filePath);
+        return null;
+      }
+    } catch (IOException e1) {
+      Log.w(TAG, "Could not create dseTestFile " + filePath + ": " + e1);
+    }
+
+    return dseTestFileBuf;
+  }
+
+
+  /**
+   * Used to perform experimental testing on the performance of the DSE.
+   */
+  public void testDseWithDb() {
+
+    // Create a file where to write the measured duration of the dse queries
+    for (int nrMethods = dseTestMinNrMethods; nrMethods <= dseTestMaxNrMethods; nrMethods +=
+        dseTestStepNrMethods) {
+      // Create a db containing nrMethods*50 rows
+      String dbName = "rapid-test-" + nrMethods + "-methods" + ".db";
+      DatabaseQuery testDbQuery = createAndPopulateTestDb(dbName, nrMethods);
+      DSE dse = new DSE(mContext, Constants.LOCATION_DYNAMIC_TIME_ENERGY, dbName);
+
+      String dseTestFilePath =
+          Constants.TEST_LOGS_FOLDER + File.separator + "dse-db-tests-" + nrMethods + ".dat";
+      BufferedWriter dseTestFileBuf =
+          createMeasurementFile(dseTestFilePath, "# nrMethods\t queryDuration (ms)\n");
+
+      // Perform queries on the DB and measure the duration of the queries in ms
+      for (int i = 0; i < dseTestNrIterations; i++) {
+        int methodIndex = dseTestRandom.nextInt(nrMethods);
+        long t0 = System.nanoTime();
+        dse.findExecLocationDB("appName-" + methodIndex, "methodName-" + methodIndex);
+        double duration = (System.nanoTime() - t0) / 1000000.0;
+
+        if (dseTestFileBuf != null) {
+          try {
+            dseTestFileBuf.append(nrMethods + "\t" + duration + "\n");
+          } catch (IOException e) {
+            Log.w(TAG, "Could not write in dseTestFile: " + e);
+          }
+        }
+      }
+
+      try {
+        testDbQuery.destroy();
+      } catch (Throwable e) {
+        Log.e(TAG, "Error while closing DB " + dbName + ": " + e);
+      }
+
+      if (dseTestFileBuf != null) {
+        try {
+          dseTestFileBuf.close();
+        } catch (IOException e) {
+          Log.w(TAG, "Error closing dseTestFileBuf: " + e);
+        }
+      }
+    }
+  }
+
+  /**
+   * Create a DB and populate with <code>50 * nrMethods</code> rows, where 50 is the limit of rows
+   * we want to keep per method so that we only keep the most recent ones.
+   * 
+   * @param nrMethods
+   */
+  private DatabaseQuery createAndPopulateTestDb(String dbName, int nrMethods) {
+    // First create a testing DB
+    DatabaseQuery testDbQuery = new DatabaseQuery(mContext, dbName);
+    // If the database already existed then now it is open. Delete the entries from previous
+    // experiments.
+    testDbQuery.clearTable();
+
+    // Insert some dummy entries in the database to populate it.
+    int[] nrRemainingRowsToInsert = new int[nrMethods];
+    for (int i = 0; i < nrMethods; i++) {
+      nrRemainingRowsToInsert[i] = Constants.MAX_METHOD_EXEC_HISTORY;
+    }
+
+    Random r = new Random();
+    for (int i = 0; i < Constants.MAX_METHOD_EXEC_HISTORY * nrMethods;) {
+      int j = r.nextInt(nrMethods);
+      if (nrRemainingRowsToInsert[j] > 0) {
+        insertRandomTestRow(testDbQuery, "appName-" + j, "methodName-" + j);
+        nrRemainingRowsToInsert[j]--;
+        i++;
+      }
+    }
+
+    return testDbQuery;
+  }
+
+  /**
+   * Insert a row with random values in the DB
+   * 
+   * @param testDbQuery
+   */
+  private void insertRandomTestRow(DatabaseQuery testDbQuery, String appName, String methodName) {
+    if (testDbQuery == null) {
+      return;
+    }
+
+    DBEntry entry = createRandomDbEntry(appName, methodName);
+
+    // Insert the new record in the DB
+    testDbQuery.appendData(DatabaseQuery.KEY_APP_NAME, appName);
+    testDbQuery.appendData(DatabaseQuery.KEY_METHOD_NAME, methodName);
+    testDbQuery.appendData(DatabaseQuery.KEY_EXEC_LOCATION, entry.getExecLocation());
+    testDbQuery.appendData(DatabaseQuery.KEY_NETWORK_TYPE, entry.getNetworkType());
+    testDbQuery.appendData(DatabaseQuery.KEY_NETWORK_SUBTYPE, entry.getNetworkSubType());
+    testDbQuery.appendData(DatabaseQuery.KEY_UL_RATE, Integer.toString(entry.getUlRate()));
+    testDbQuery.appendData(DatabaseQuery.KEY_DL_RATE, Integer.toString(entry.getDlRate()));
+    testDbQuery.appendData(DatabaseQuery.KEY_EXEC_DURATION, Long.toString(entry.getExecDuration()));
+    testDbQuery.appendData(DatabaseQuery.KEY_EXEC_ENERGY, Long.toString(entry.getExecEnergy()));
+    testDbQuery.appendData(DatabaseQuery.KEY_TIMESTAMP, Long.toString(entry.getTimestamp()));
+    testDbQuery.addRow();
+
+  }
+
+  private DBEntry createRandomDbEntry(String appName, String methodName) {
+    int minRate = 100 * 1024; // 100 Kb/s
+    int maxRate = 10 * 1024 * 1024; // 10 Mb/s
+    int ulRate = minRate + dseTestRandom.nextInt(maxRate - minRate);
+    int dlRate = minRate + dseTestRandom.nextInt(maxRate - minRate);
+
+    String execLocation = dseTestRandom.nextBoolean() ? "LOCAL" : "REMOTE";
+    String netType = NetworkProfiler.currentNetworkTypeName;
+    String netSubType = NetworkProfiler.currentNetworkSubtypeName;
+
+    int minDur = 10; // ms
+    int maxDur = 5 * 60 * 1000; // ms
+    int duration = minDur + dseTestRandom.nextInt(maxDur - minDur);
+
+    int minEnergy = 10; // mJ
+    int maxEnergy = 5 * 60 * 1000; // mJ
+    int energy = minDur + dseTestRandom.nextInt(maxEnergy - minEnergy);
+
+    DBEntry entry = new DBEntry(appName, methodName, execLocation, netType, netSubType, ulRate,
+        dlRate, duration, energy);
+
+    return entry;
+  }
+
 
   /**
    * Used to measure the costs of connection with the clone when using different communication
