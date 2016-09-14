@@ -47,10 +47,9 @@ public class D2DClientService extends IntentService {
   private D2DSetWriter setWriterRunnable;
   public static final int FREQUENCY_WRITE_D2D_SET = 5 * 60 * 1013; // Every 5 minutes save the set
   public static final int FREQUENCY_READ_D2D_SET = 1 * 60 * 1011; // Every 1 minute read the set
-  // on the file
+  // from the file
   private MulticastSocket receiveSocket;
-  private Set<PhoneSpecs> setD2dPhones = new TreeSet<PhoneSpecs>();
-  private boolean setChanged;
+  private Set<PhoneSpecs> setD2dPhones = new TreeSet<PhoneSpecs>(); // Sorted by specs
 
   public D2DClientService() {
     super(D2DClientService.class.getName());
@@ -115,8 +114,8 @@ public class D2DClientService extends IntentService {
           setD2dPhones.remove(otherPhone);
         }
         otherPhone.setTimestamp(System.currentTimeMillis());
+        otherPhone.setIp(packet.getAddress().getHostAddress());
         setD2dPhones.add(otherPhone);
-        setChanged = true;
       }
     } catch (IOException e) {
       Log.e(TAG, "Error while processing the packet: " + e);
@@ -129,27 +128,23 @@ public class D2DClientService extends IntentService {
     @Override
     public void run() {
       // Write the set in the filesystem so that other DFEs can use the D2D phones when needed.
-      if (setChanged) {
-        Iterator<PhoneSpecs> it = setD2dPhones.iterator();
-        Log.i(TAG, "Writing set of D2D devices on the sdcard file");
-        // First clean the set from devices that have not been pinging recently
-        while (it.hasNext()) {
-          // If the last time we have seen this device is 5 pings before, then remove it.
-          if ((System.currentTimeMillis() - it.next().getTimestamp()) > 5
-              * Constants.D2D_BROADCAST_INTERVAL) {
-            it.remove();
-          }
+      Iterator<PhoneSpecs> it = setD2dPhones.iterator();
+      Log.i(TAG, "Writing set of D2D devices on the sdcard file");
+      // First clean the set from devices that have not been pinging recently
+      while (it.hasNext()) {
+        // If the last time we have seen this device is 5 pings before, then remove it.
+        if ((System.currentTimeMillis() - it.next().getTimestamp()) > 5
+            * Constants.D2D_BROADCAST_INTERVAL) {
+          it.remove();
         }
+      }
 
-        // This method is blocking, waiting for the lock on the file to be available.
-        try {
-          Utils.writeObjectToFile(Constants.FILE_D2D_PHONES, setD2dPhones);
-          Log.i(TAG, "Finished writing set of D2D devices on the sdcard file");
-        } catch (IOException e) {
-          Log.e(TAG, "Error while writing set of D2D devices on the sdcard file: " + e);
-        } finally {
-          setChanged = false;
-        }
+      // This method is blocking, waiting for the lock on the file to be available.
+      try {
+        Utils.writeObjectToFile(Constants.FILE_D2D_PHONES, setD2dPhones);
+        Log.i(TAG, "Finished writing set of D2D devices on the sdcard file");
+      } catch (IOException e) {
+        Log.e(TAG, "Error while writing set of D2D devices on the sdcard file: " + e);
       }
     }
   }

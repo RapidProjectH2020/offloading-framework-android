@@ -31,7 +31,6 @@ import android.content.IntentFilter;
 import android.os.BatteryManager;
 import android.provider.Settings;
 import android.util.Log;
-import eu.project.rapid.ac.utils.Constants;
 
 /**
  * Device state profiler - currently only tracks battery state, listening to ACTION_BATTERY_CHANGED
@@ -45,6 +44,7 @@ public class DeviceProfiler {
 
   public static int batteryLevel;
   public static boolean batteryTrackingOn = false;
+  private static Object batteryTrackingSyncObject = new Object();
 
   private Long mStartBatteryVoltage;
   public Long batteryVoltageDelta;
@@ -80,7 +80,7 @@ public class DeviceProfiler {
   private ArrayList<Long> idleSystem;
   private ArrayList<Integer> screenBrightness;
 
-  private BroadcastReceiver batteryLevelReceiver;
+  private static BroadcastReceiver batteryLevelReceiver;
 
   /**
    * Variables for CPU frequency<br>
@@ -92,8 +92,6 @@ public class DeviceProfiler {
   private int currentFreq; // The current frequency in KHz
   private ArrayList<Integer> frequence;
   private final String curFreqFile = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq";
-
-  // private static DeviceProfiler instance = null;
 
   public DeviceProfiler(Context context) {
     DeviceProfiler.context = context;
@@ -115,32 +113,22 @@ public class DeviceProfiler {
     }
   }
 
-  // public static DeviceProfiler getInstance(Context context) {
-  // DeviceProfiler.context = context;
-  // if (instance == null) {
-  // instance = new DeviceProfiler();
-  // }
-  // return instance;
-  // }
-
   /**
    * Start device information tracking from a certain point in a program (currently only battery
    * voltage)
    */
   public void startDeviceProfiling() {
     mStartBatteryVoltage = SysClassBattery.getCurrentVoltage();
-
-    // Used by the Energy model implemented for HTC Dream (G1) based on PowerTutor paper
-    // No need to start the profilers on not supported phones
-    if (android.os.Build.MODEL.equals(Constants.PHONE_NAME_HTC_G1)) {
-      calculatePidCpuUsage();
-      calculateScreenBrightness();
-    }
+    calculatePidCpuUsage();
+    calculateScreenBrightness();
   }
 
-  public void onDestroy() {
+  public static void onDestroy() {
     if (batteryLevelReceiver != null) {
       DeviceProfiler.context.unregisterReceiver(batteryLevelReceiver);
+    }
+    synchronized (batteryTrackingSyncObject) {
+      batteryTrackingOn = false;
     }
   }
 
@@ -160,7 +148,7 @@ public class DeviceProfiler {
    * Computes the battery level by registering a receiver to the intent triggered by a battery
    * status/level change.
    */
-  public void trackBatteryLevel() {
+  public static void trackBatteryLevel() {
     if (batteryTrackingOn == false) {
       batteryLevelReceiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
@@ -178,7 +166,7 @@ public class DeviceProfiler {
       };
       IntentFilter batteryLevelFilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
       context.registerReceiver(batteryLevelReceiver, batteryLevelFilter);
-      synchronized (this) {
+      synchronized (batteryTrackingSyncObject) {
         batteryTrackingOn = true;
       }
     }

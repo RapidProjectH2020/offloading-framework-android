@@ -15,6 +15,7 @@
  *******************************************************************************/
 package eu.project.rapid.ac.utils;
 
+import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -278,6 +279,7 @@ public class Utils {
         List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
         for (InetAddress addr : addrs) {
           // Sokol: FIXME remove the hard coded "wlan" check
+          // Log.i(TAG, "IP: " + addr);
           if (!addr.isLoopbackAddress() && addr.toString().contains("wlan")) {
             return addr;
           }
@@ -663,5 +665,32 @@ public class Utils {
       ois.close();
       return o;
     }
+  }
+
+  public static BufferedWriter createMeasurementFile(String filePath, String header) {
+    return createMeasurementFile(filePath, header, false);
+  }
+
+  /**
+   * Creates a file where we can write the measurements.
+   * 
+   * @param filePath
+   * @param header
+   * @return A BuuferedWriter that we should not forget to close when we're done.
+   */
+  public static BufferedWriter createMeasurementFile(String filePath, String header,
+      boolean appending) {
+    File dseTestFile = new File(filePath);
+    BufferedWriter dseTestFileBuf = null;
+    try {
+      dseTestFileBuf = new BufferedWriter(new FileWriter(dseTestFile, appending));
+      if (!appending) {
+        dseTestFileBuf.write(header);
+      }
+    } catch (IOException e1) {
+      Log.w(TAG, "Could not create file " + filePath + ": " + e1);
+    }
+
+    return dseTestFileBuf;
   }
 }

@@ -174,4 +174,15 @@ public class DBCache {
   public int nrElements() {
     return nrElements;
   }
+
+  public int getByteSize() {
+    int bytes = -1;
+    try {
+      bytes = Utils.objectToByteArray(dbMap).length;
+    } catch (IOException e) {
+      Log.e(TAG, "Error while converting the DB cache map to byte array: " + e);
+    }
+
+    return bytes;
+  }
 }

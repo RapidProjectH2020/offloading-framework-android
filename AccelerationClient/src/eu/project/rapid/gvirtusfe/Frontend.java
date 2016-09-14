@@ -7,6 +7,7 @@ package eu.project.rapid.gvirtusfe;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 
 import android.util.Log;
@@ -31,7 +32,8 @@ public final class Frontend {
     this.serverIpAddress = url;
     this.port = port;
     try {
-      this.socket = new Socket(this.serverIpAddress, this.port);
+      this.socket = new Socket();
+      socket.connect(new InetSocketAddress(this.serverIpAddress, this.port), 10 * 1000);
       this.outputStream = new DataOutputStream(this.socket.getOutputStream());
       this.in = new DataInputStream(this.socket.getInputStream());
     } catch (IOException e) {

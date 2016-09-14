@@ -18,6 +18,7 @@ package eu.project.rapid.ac.d2d;
 import java.io.Serializable;
 
 import android.content.Context;
+import android.util.Log;
 import eu.project.rapid.ac.utils.Utils;
 
 /**
@@ -29,6 +30,8 @@ import eu.project.rapid.ac.utils.Utils;
  */
 public class PhoneSpecs implements Serializable, Comparable<PhoneSpecs> {
   private static final long serialVersionUID = -4918806738265004873L;
+
+  private static final String TAG = "PhoneSpecs";
 
   private String phoneId;
   private long timestamp; // TimeStamp to be used by the clients as a mean to measure the freshness
@@ -49,8 +52,19 @@ public class PhoneSpecs implements Serializable, Comparable<PhoneSpecs> {
       throw new NullPointerException("Context cannot be null");
     }
 
+    // FIXME: On Android 6 we can't just read the ID directly, we need to ask for runtime
+    // permission.
     phoneId = Utils.getDeviceIdHashHex(context);
-    ip = Utils.getIpAddress().getHostAddress();
+    // phoneId = "Motorola Moto G";
+    // nrCPUs = 1;
+    // phoneId = "Sony Xperia Z5";
+    // nrCPUs = 4;
+    try {
+      ip = Utils.getIpAddress().getHostAddress();
+    } catch (Exception e) {
+      Log.w(TAG,
+          "Error while getting the IP (most probably we are not connected to WiFi network): " + e);
+    }
   }
 
   public static PhoneSpecs getPhoneSpecs(Context context) {
@@ -208,7 +222,7 @@ public class PhoneSpecs implements Serializable, Comparable<PhoneSpecs> {
 
   @Override
   public String toString() {
-    return this.phoneId + ", nrCPUs=" + this.nrCPUs + ", CPU=" + this.cpuPowerMHz + " MHz"
-        + ", RAM=" + this.ramMB + " MB" + ", GPU=" + this.hasGpu;
+    return "ID=" + this.phoneId + ", nrCPUs=" + this.nrCPUs + ", CPU=" + this.cpuPowerMHz + " MHz"
+        + ", RAM=" + this.ramMB + " MB" + ", GPU=" + this.hasGpu + ", IP=" + this.ip;
   }
 }

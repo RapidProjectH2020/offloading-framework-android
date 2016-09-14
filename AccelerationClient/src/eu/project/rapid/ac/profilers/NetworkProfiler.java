@@ -76,14 +76,14 @@ public class NetworkProfiler {
   // private static Runnable uploadRunnable;
   // private static Runnable downloadRunnable;
 
-  private Context context;
+  private static Context context;
   private static Configuration config;
-  private NetworkInfo netInfo;
-  private PhoneStateListener listener;
-  private TelephonyManager telephonyManager;
-  private ConnectivityManager connectivityManager;
+  private static NetworkInfo netInfo;
+  private static PhoneStateListener listener;
+  private static TelephonyManager telephonyManager;
+  private static ConnectivityManager connectivityManager;
   private WifiManager wifiManager;
-  private BroadcastReceiver networkStateReceiver;
+  private static BroadcastReceiver networkStateReceiver;
 
   private boolean stopReadingFiles;
   private ArrayList<Long> wifiTxPackets;
@@ -120,7 +120,7 @@ public class NetworkProfiler {
    */
   public NetworkProfiler(Context context, Configuration config) {
 
-    this.context = context;
+    NetworkProfiler.context = context;
     NetworkProfiler.config = config;
     buffer = new byte[BUFFER_SIZE];
 
@@ -128,6 +128,9 @@ public class NetworkProfiler {
     connectivityManager =
         (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
     wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+    if (wifiManager == null) {
+      throw new NullPointerException("WiFi manager is null");
+    }
 
     /*
      * // FIXME: Crashes on Android 4+ due to networkonmainthread exception. // Fix this
@@ -232,8 +235,7 @@ public class NetworkProfiler {
       Log.d(TAG, "Ping - " + rtt / 1000000 + "ms");
 
     } catch (IOException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      Log.e(TAG, "Error while measuring RTT: " + e);
       tRtt = rttInfinite;
     }
     return rtt;
@@ -248,9 +250,6 @@ public class NetworkProfiler {
     startRxBytes = getProcessRxBytes();
     startTxBytes = getProcessTxBytes();
 
-    // Used by the Energy model implemented for HTC Dream (G1) based on PowerTutor paper
-    // No need to start the profilers on not supported phones
-    // if (android.os.Build.MODEL.equals(RapidConstants.PHONE_NAME_HTC_G1)) {
     if (telephonyManager != null) {
       if (currentNetworkTypeName.equals("WIFI")) {
         calculateWifiRxTxPackets();
@@ -258,7 +257,6 @@ public class NetworkProfiler {
         calculate3GStates();
       }
     }
-    // }
   }
 
   /**
@@ -387,7 +385,7 @@ public class NetworkProfiler {
     @Override
     public void run() {
       Log.i(TAG, "Measuring the upload rate");
-      NetworkProfiler.measureUlRate();
+      NetworkProfiler.measureUlRate(config.getClone().getIp(), config.getClonePortBandwidthTest());
       // uploadRateHandler.postDelayed(this, delayRefreshUlRate);
     }
   }
@@ -402,7 +400,7 @@ public class NetworkProfiler {
     @Override
     public void run() {
       Log.i(TAG, "Measuring the download rate");
-      NetworkProfiler.measureDlRate();
+      NetworkProfiler.measureDlRate(config.getClone().getIp(), config.getClonePortBandwidthTest());
       // downloadRateHandler.postDelayed(this, delayRefreshDlRate);
     }
   }
@@ -423,8 +421,6 @@ public class NetworkProfiler {
           try {
             Thread.sleep(1000);
           } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
           }
         }
       }
@@ -475,12 +471,8 @@ public class NetworkProfiler {
           }
 
           try {
-
             Thread.sleep(1000);
-
           } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
           }
         }
       }
@@ -573,11 +565,17 @@ public class NetworkProfiler {
   }
 
   public int getLinkSpeed() {
+    if (wifiManager == null) {
+      wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+    }
     WifiInfo wifiInfo = wifiManager.getConnectionInfo();
     return wifiInfo.getLinkSpeed();
   }
 
   public byte get3GActiveState(int i) {
+    if (threeGActiveState == null || threeGActiveState.size() <= i) {
+      return 0;
+    }
     return threeGActiveState.get(i);
   }
 
@@ -590,7 +588,7 @@ public class NetworkProfiler {
    * 
    * @param dataRate
    */
-  public void setDataRate(int dataRate) {
+  public static void setDataRate(int dataRate) {
     lastDlRate = new NetworkBWRecord(dataRate, System.currentTimeMillis());
     dlRateHistory.add(lastDlRate);
 
@@ -599,7 +597,7 @@ public class NetworkProfiler {
   }
 
   public void onDestroy() {
-    this.context.unregisterReceiver(networkStateReceiver);
+    context.unregisterReceiver(networkStateReceiver);
 
     // if (uploadRateHandler != null) {
     // uploadRateHandler.removeCallbacks(uploadRunnable);
@@ -615,7 +613,7 @@ public class NetworkProfiler {
 
   }
 
-  public static NetworkBWRecord measureDlRate() {
+  public static NetworkBWRecord measureDlRate(String serverIp, int serverPort) {
 
     OutputStream os = null;
     InputStream is = null;
@@ -625,8 +623,7 @@ public class NetworkProfiler {
     long rxBytes = 0;
 
     try {
-      final Socket clientSocket =
-          new Socket(config.getClone().getIp(), config.getClonePortBandwidthTest());
+      final Socket clientSocket = new Socket(serverIp, serverPort);
       os = clientSocket.getOutputStream();
       is = clientSocket.getInputStream();
       dis = new DataInputStream(is);
@@ -636,12 +633,17 @@ public class NetworkProfiler {
       new Thread(new Runnable() {
         @Override
         public void run() {
-          try {
-            Thread.sleep(3000);
-          } catch (InterruptedException e1) {
-          } finally {
-            RapidUtils.closeQuietly(clientSocket);
+          long t0 = System.nanoTime();
+          long elapsed = 0;
+          while (elapsed < 3000) {
+            try {
+              Thread.sleep(3000 - elapsed);
+            } catch (InterruptedException e1) {
+            } finally {
+              elapsed = (System.nanoTime() - t0) / 1000000;
+            }
           }
+          RapidUtils.closeQuietly(clientSocket);
         }
       }).start();
 
@@ -676,7 +678,7 @@ public class NetworkProfiler {
     return lastDlRate;
   }
 
-  public static NetworkBWRecord measureUlRate() {
+  public static NetworkBWRecord measureUlRate(String serverIp, int serverPort) {
 
     OutputStream os = null;
     InputStream is = null;
@@ -687,7 +689,7 @@ public class NetworkProfiler {
 
     Socket clientSocket = null;
     try {
-      clientSocket = new Socket(config.getClone().getIp(), config.getClonePortBandwidthTest());
+      clientSocket = new Socket(serverIp, serverPort);
       os = clientSocket.getOutputStream();
       is = clientSocket.getInputStream();
       dis = new DataInputStream(is);
@@ -737,5 +739,12 @@ public class NetworkProfiler {
       }
     }
     return lastUlRate;
+  }
+
+  private void sleep(long millis) {
+    try {
+      Thread.sleep(millis);
+    } catch (InterruptedException e) {
+    }
   }
 }

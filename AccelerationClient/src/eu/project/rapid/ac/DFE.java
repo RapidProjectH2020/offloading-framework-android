@@ -20,7 +20,6 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
@@ -42,7 +41,6 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.util.Iterator;
-import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
@@ -78,8 +76,6 @@ import android.util.Log;
 import eu.project.rapid.ac.d2d.D2DClientService;
 import eu.project.rapid.ac.d2d.PhoneSpecs;
 import eu.project.rapid.ac.db.DBCache;
-import eu.project.rapid.ac.db.DBEntry;
-import eu.project.rapid.ac.db.DatabaseQuery;
 import eu.project.rapid.ac.profilers.DeviceProfiler;
 import eu.project.rapid.ac.profilers.LogRecord;
 import eu.project.rapid.ac.profilers.NetworkProfiler;
@@ -115,13 +111,11 @@ public class DFE {
   public static final int REGIME_SERVER = 2;
   public static int commType = DFE.COMM_CLEAR;
   private int userChoice = Constants.LOCATION_DYNAMIC_TIME_ENERGY;
-  private double localDataFraction = 1;
   private Method prepareDataMethod = null;
 
   private long mPureLocalDuration;
   private long mPureRemoteDuration;
   private long prepareDataDuration;
-  private Long totalTxBytesObject;
 
   // private Object result;
   private String mAppName;
@@ -132,17 +126,18 @@ public class DFE {
   public static boolean dfeReady = false;
   private int nrClones;
   private DSE mDSE;
-  private DeviceProfiler mDevProfiler;
-  private NetworkProfiler netProfiler;
+  NetworkProfiler netProfiler;
+
+  private boolean profilersEnabled = true;
+
   // GVirtuS frontend is responsible for running the CUDA code.
   private Frontend gVirtusFrontend;
-
   private static Clone sClone;
   private static Socket mSocket;
   private static OutputStream mOutStream;
   private static ObjectOutputStream mObjOutStream;
   private static InputStream mInStream;
-  private static DynamicObjectInputStream mObjInStream;
+  private static ObjectInputStream mObjInStream;
 
   public LogRecord lastLogRecord;
   private int myId = -1;
@@ -194,21 +189,10 @@ public class DFE {
       myIdWithDS = prefs.getInt(Constants.MY_OLD_ID_WITH_DS, -1);
     }
 
-    mDSE = new DSE(mContext, userChoice);
+    mDSE = new DSE(userChoice);
 
-    mDevProfiler = new DeviceProfiler(context);
-    // mDevProfiler.trackBatteryLevel();
-    netProfiler = new NetworkProfiler(context, config);
+    netProfiler = new NetworkProfiler(mContext, config);
     netProfiler.registerNetworkStateTrackers();
-
-    // Create the database
-    DatabaseQuery query = new DatabaseQuery(context, Constants.DEFAULT_DB_NAME);
-    try {
-      // Close the database
-      query.destroy();
-    } catch (Throwable e) {
-      Log.e(TAG, "Could not close the database: " + e.getMessage());
-    }
 
     // Start the thread that will deal with the D2D communication
     startD2DThread();
@@ -252,7 +236,6 @@ public class DFE {
       config = new Configuration(Constants.PHONE_CONFIG_FILE);
       config.parseConfigFile();
     } catch (FileNotFoundException e) {
-      // e.printStackTrace();
       Log.e(TAG, "Config file not found: " + Constants.PHONE_CONFIG_FILE);
       config = new Configuration();
     }
@@ -336,7 +319,7 @@ public class DFE {
 
       config.setClone(sClone);
 
-      RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VM);
+      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VM);
 
       if (commType == DFE.COMM_CLEAR) {
         publishProgress("Clear connection with the clone: " + sClone);
@@ -361,20 +344,20 @@ public class DFE {
           // config.setGvirtusIp(TODO: ip address of the physical machine where the VM is running);
         }
 
-        publishProgress("Registering the APK with the clone...");
-        RapidUtils.sendAnimationMsg(config, RapidMessages.AC_SEND_APK);
+        publishProgress("Registering application with the RAPID system...");
+        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_SEND_APK);
         sendApk();
 
         // Find rtt to the server
         // Measure the data rate when just connected
         publishProgress("Sending/receiving data for 3 seconds to measure the ulRate and dlRate...");
-        RapidUtils.sendAnimationMsg(config, RapidMessages.AC_RTT_MEASUREMENT);
+        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_RTT_MEASUREMENT);
         NetworkProfiler.rttPing(mInStream, mOutStream);
-        RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DL_MEASUREMENT);
-        NetworkProfiler.measureDlRate();
-        RapidUtils.sendAnimationMsg(config, RapidMessages.AC_UL_MEASUREMENT);
-        NetworkProfiler.measureUlRate();
-        RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VM_OK);
+        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DL_MEASUREMENT);
+        NetworkProfiler.measureDlRate(sClone.getIp(), config.getClonePortBandwidthTest());
+        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_UL_MEASUREMENT);
+        NetworkProfiler.measureUlRate(sClone.getIp(), config.getClonePortBandwidthTest());
+        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VM_OK);
 
         try {
           ((DfeCallback) mContext).vmConnectionStatusUpdate();
@@ -418,7 +401,7 @@ public class DFE {
   public void onDestroy() {
     Log.d(TAG, "onDestroy");
     dfeReady = false;
-    mDevProfiler.onDestroy();
+    DeviceProfiler.onDestroy();
     netProfiler.onDestroy();
     DBCache.saveDbCache();
     closeConnection();
@@ -475,7 +458,7 @@ public class DFE {
 
     try {
       dsSocket = new Socket();
-      dsSocket.connect(new InetSocketAddress(config.getDSIp(), config.getDSPort()), 20);
+      dsSocket.connect(new InetSocketAddress(config.getDSIp(), config.getDSPort()), 10 * 1000);
 
       OutputStream os = dsSocket.getOutputStream();
       InputStream is = dsSocket.getInputStream();
@@ -496,7 +479,7 @@ public class DFE {
       oos.flush();
 
       myIdWithDS = ois.readInt();
-      int vmmId = ois.readInt();
+      ois.readInt(); // vvmId
       String vmmIp = ois.readUTF();
       config.setManagerPort(ois.readInt());
       config.setAnimationServerIp(ois.readUTF());
@@ -547,7 +530,7 @@ public class DFE {
     try {
       managerSocket = new Socket();
       managerSocket.connect(new InetSocketAddress(config.getManagerIp(), config.getManagerPort()),
-          5);
+          10 * 1000);
 
       OutputStream os = managerSocket.getOutputStream();
       InputStream is = managerSocket.getInputStream();
@@ -558,9 +541,9 @@ public class DFE {
       ois = new ObjectInputStream(is);
 
       if (CONNECT_TO_PREVIOUS_VM) {
-        RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VMM_PREV);
+        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VMM_PREV);
       } else {
-        RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VMM_NEW);
+        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VMM_NEW);
       }
 
       // Send the name and id to the manager
@@ -606,15 +589,16 @@ public class DFE {
       long startTxBytes = NetworkProfiler.getProcessTxBytes();
       long startRxBytes = NetworkProfiler.getProcessRxBytes();
 
-      RapidUtils.sendAnimationMsg(config, RapidMessages.AC_CONNECT_VM);
+      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_CONNECT_VM);
 
+      Log.i(TAG, "Connecting with AS on: " + sClone.getIp() + ":" + sClone.getPort());
       mSocket = new Socket();
-      mSocket.connect(new InetSocketAddress(sClone.getIp(), sClone.getPort()), 10);
+      mSocket.connect(new InetSocketAddress(sClone.getIp(), sClone.getPort()), 10 * 1000);
 
       mOutStream = mSocket.getOutputStream();
       mInStream = mSocket.getInputStream();
       mObjOutStream = new ObjectOutputStream(mOutStream);
-      mObjInStream = new DynamicObjectInputStream(mInStream);
+      mObjInStream = new ObjectInputStream(mInStream);
 
       onLine = true;
 
@@ -626,12 +610,8 @@ public class DFE {
       Log.d(TAG, "Total bytes sent: " + totalTxBytes);
       Log.d(TAG, "Total bytes received: " + totalRxBytes);
 
-    } catch (UnknownHostException e) {
-      fallBackToLocalExecution("Connection setup with the clone failed: " + e);
-    } catch (IOException e) {
-      fallBackToLocalExecution("Connection setup with the clone failed: " + e);
     } catch (Exception e) {
-      fallBackToLocalExecution("Could not connect with the clone: " + e);
+      fallBackToLocalExecution("Connection setup with the clone failed: " + e);
     }
 
     return true;
@@ -650,7 +630,7 @@ public class DFE {
     }
 
     try {
-      RapidUtils.sendAnimationMsg(config, RapidMessages.AC_CONNECT_VM);
+      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_CONNECT_VM);
 
       Long sTime = System.nanoTime();
       long startTxBytes = NetworkProfiler.getProcessTxBytes();
@@ -665,7 +645,7 @@ public class DFE {
 
       // sslContext.getClientSessionContext().getSession(null).invalidate();
 
-      ((SSLSocket) mSocket).addHandshakeCompletedListener(new MyHandshakeCompletedListener());
+      ((SSLSocket) mSocket).addHandshakeCompletedListener(new SSLHandshakeCompletedListener());
       Log.i(TAG, "socket created");
 
       // Log.i(TAG, "Enabled cipher suites: ");
@@ -676,7 +656,7 @@ public class DFE {
       mOutStream = mSocket.getOutputStream();
       mInStream = mSocket.getInputStream();
       mObjOutStream = new ObjectOutputStream(mOutStream);
-      mObjInStream = new DynamicObjectInputStream(mInStream);
+      mObjInStream = new ObjectInputStream(mInStream);
 
       onLine = true;
 
@@ -699,11 +679,11 @@ public class DFE {
     return true;
   }
 
-  private class MyHandshakeCompletedListener implements HandshakeCompletedListener {
+  private class SSLHandshakeCompletedListener implements HandshakeCompletedListener {
 
     @Override
     public void handshakeCompleted(HandshakeCompletedEvent event) {
-      Log.i(TAG, "handshake completed");
+      Log.i(TAG, "SSL handshake completed");
 
       try {
         // Log.i(TAG, "getCipherSuite: " + event.getCipherSuite());
@@ -725,7 +705,7 @@ public class DFE {
         // Log.i(TAG, "Cert #" + i + ": " + cert.getSubjectDN().getName());
         // }
       } catch (Exception e) {
-        Log.e(TAG, "handshakeCompleted: " + e);
+        Log.e(TAG, "SSL handshake completed with errors: " + e);
       }
     }
 
@@ -733,7 +713,7 @@ public class DFE {
 
   private void closeConnection() {
 
-    RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DISCONNECT_VM);
+    // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DISCONNECT_VM);
 
     RapidUtils.closeQuietly(mObjOutStream);
     RapidUtils.closeQuietly(mObjInStream);
@@ -748,15 +728,12 @@ public class DFE {
   }
 
   /**
-   * Call the execution solver to connect to the Manager for performing the data-partition
-   * algorithm.
-   * 
    * @param appName The application name.
    * @param methodName The current method that we want to offload from this application.<br>
    *        Different methods of the same application will have a different set of parameters.
    * @return The execution location which can be one of: LOCAL, REMOTE.<br>
    */
-  public int findExecLocation(String appName, String methodName) {
+  private int findExecLocation(String appName, String methodName) {
 
     int execLocation = mDSE.findExecLocation(appName, methodName);
     Log.i(TAG, "Execution location: " + execLocation);
@@ -772,7 +749,7 @@ public class DFE {
    * @param methodName The name of the method that will be executed.
    * @return
    */
-  public int findExecLocation(String methodName) {
+  private int findExecLocation(String methodName) {
     return findExecLocation(mAppName, methodName);
   }
 
@@ -808,26 +785,6 @@ public class DFE {
     Object localResult, remoteResult, totalResult = null;
 
     int execLocation = findExecLocation(m.getName());
-    // if (execLocation == RapidConstants.LOCATION_LOCAL) {
-    // localDataFraction = 1;
-    // }
-    // else if (execLocation == RapidConstants.LOCATION_REMOTE) {
-    // localDataFraction = 0;
-    // }
-
-    // Maybe the developer has implemented the prepareData(float) method that helps him prepare the
-    // data based on where the execution will take place then call it.
-    // Prepare the data by calling the prepareData(localFraction) implemented by the developer.
-    try {
-      // long s = System.nanoTime();
-      prepareDataMethod = o.getClass().getDeclaredMethod("prepareData", double.class);
-      prepareDataMethod.setAccessible(true);
-      // prepareDataMethod.invoke(o, localDataFraction);
-      // prepareDataDuration = System.nanoTime() - s;
-    } catch (NoSuchMethodException e) {
-      Log.w(TAG, "The method prepareData() does not exist");
-      prepareDataMethod = null;
-    }
 
     ExecutorService executor = Executors.newFixedThreadPool(2);
     if (execLocation == Constants.LOCATION_HYBRID) {
@@ -927,11 +884,7 @@ public class DFE {
             this.result = executeLocally(m, pValues, o);
           }
 
-        } catch (IllegalArgumentException e) {
-          Log.e(TAG, "Error while running the method locally: " + e);
-        } catch (IllegalAccessException e) {
-          Log.e(TAG, "Error while running the method locally: " + e);
-        } catch (InvocationTargetException e) {
+        } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException e) {
           Log.e(TAG, "Error while running the method locally: " + e);
         }
       } else if (execLocation == Constants.LOCATION_REMOTE) {
@@ -942,17 +895,8 @@ public class DFE {
             Log.w(TAG, "The result was InvocationTargetException. Running the method locally");
             this.result = executeLocally(m, pValues, o);
           }
-        } catch (IllegalArgumentException e) {
-          Log.e(TAG, "Error while trying to run the method remotely: " + e);
-        } catch (SecurityException e) {
-          Log.e(TAG, "Error while trying to run the method remotely: " + e);
-        } catch (IllegalAccessException e) {
-          Log.e(TAG, "Error while trying to run the method remotely: " + e);
-        } catch (InvocationTargetException e) {
-          Log.e(TAG, "Error while trying to run the method remotely: " + e);
-        } catch (ClassNotFoundException e) {
-          Log.e(TAG, "Error while trying to run the method remotely: " + e);
-        } catch (NoSuchMethodException e) {
+        } catch (IllegalArgumentException | SecurityException | IllegalAccessException
+            | InvocationTargetException | ClassNotFoundException | NoSuchMethodException e) {
           Log.e(TAG, "Error while trying to run the method remotely: " + e);
         }
       }
@@ -974,26 +918,21 @@ public class DFE {
     private Object executeLocally(Method m, Object[] pValues, Object o)
         throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
 
-      RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DECISION_LOCAL);
+      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DECISION_LOCAL);
 
-      localDataFraction = 1;
-      if (prepareDataMethod != null) {
-        RapidUtils.sendAnimationMsg(config, RapidMessages.AC_PREPARE_DATA);
-        long s = System.nanoTime();
-        prepareDataMethod.invoke(o, localDataFraction);
-        prepareDataDuration = System.nanoTime() - s;
+      Profiler profiler = null;
+      if (profilersEnabled) {
+        ProgramProfiler progProfiler = new ProgramProfiler(mAppName, m.getName());
+        DeviceProfiler devProfiler = new DeviceProfiler(mContext);
+        NetworkProfiler netProfiler = null;
+        profiler = new Profiler(mRegime, progProfiler, netProfiler, devProfiler);
+
+        // Start tracking execution statistics for the method
+        profiler.startExecutionInfoTracking();
       }
 
-      ProgramProfiler progProfiler = new ProgramProfiler(mAppName, m.getName());
-      DeviceProfiler devProfiler = new DeviceProfiler(mContext);
-      NetworkProfiler netProfiler = null;
-      Profiler profiler = new Profiler(mRegime, mContext, progProfiler, netProfiler, devProfiler);
-
-      // Start tracking execution statistics for the method
-      profiler.startExecutionInfoTracking();
-
       // Make sure that the method is accessible
-      RapidUtils.sendAnimationMsg(config, RapidMessages.AC_EXEC_LOCAL);
+      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_EXEC_LOCAL);
       Object result = null;
       Long startTime = System.nanoTime();
       m.setAccessible(true);
@@ -1002,10 +941,12 @@ public class DFE {
       Log.d(TAG, "LOCAL " + m.getName() + ": Actual Invocation duration - "
           + mPureLocalDuration / 1000000 + "ms");
 
-      RapidUtils.sendAnimationMsg(config, RapidMessages.AC_FINISHED_LOCAL);
+      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_FINISHED_LOCAL);
       // Collect execution statistics
-      profiler.stopAndLogExecutionInfoTracking(prepareDataDuration, mPureLocalDuration);
-      lastLogRecord = profiler.lastLogRecord;
+      if (profilersEnabled && profiler != null) {
+        lastLogRecord =
+            profiler.stopAndLogExecutionInfoTracking(prepareDataDuration, mPureLocalDuration);
+      }
 
       return result;
     }
@@ -1029,8 +970,11 @@ public class DFE {
         throws IllegalArgumentException, IllegalAccessException, InvocationTargetException,
         IOException, ClassNotFoundException, SecurityException, NoSuchMethodException {
 
-      sClone = new Clone("D2D device", otherPhone.getIp(), config.getClonePort());
+      // otherPhone.setIp("192.168.43.1");
+      Log.i(TAG, "Trying to execute the method using D2D on device: " + otherPhone);
+      sClone = new Clone("vb-D2D device", otherPhone.getIp(), config.getClonePort());
       establishConnection();
+      sendApk();
       Object result = executeRemotely(m, pValues, o);
       closeConnection();
       return result;
@@ -1055,20 +999,26 @@ public class DFE {
         SecurityException, ClassNotFoundException, NoSuchMethodException {
       Object result = null;
 
-      RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DECISION_REMOTE);
+      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DECISION_REMOTE);
 
-      localDataFraction = 0;
-      if (prepareDataMethod != null) {
-        RapidUtils.sendAnimationMsg(config, RapidMessages.AC_PREPARE_DATA);
+      // Maybe the developer has implemented the prepareDataOnClient() method that helps him prepare
+      // the
+      // data based on where the execution will take place then call it.
+      // Prepare the data by calling the prepareData(localFraction) implemented by the developer.
+      try {
         long s = System.nanoTime();
-        prepareDataMethod.invoke(o, localDataFraction);
+        prepareDataMethod = o.getClass().getDeclaredMethod("prepareDataOnClient");
+        prepareDataMethod.setAccessible(true);
+        prepareDataMethod.invoke(o);
         prepareDataDuration = System.nanoTime() - s;
+      } catch (NoSuchMethodException e) {
+        Log.w(TAG, "The method prepareDataOnClient() does not exist");
       }
 
       ProgramProfiler progProfiler = new ProgramProfiler(mAppName, m.getName());
       DeviceProfiler devProfiler = new DeviceProfiler(mContext);
       NetworkProfiler netProfiler = new NetworkProfiler();
-      Profiler profiler = new Profiler(mRegime, mContext, progProfiler, netProfiler, devProfiler);
+      Profiler profiler = new Profiler(mRegime, progProfiler, netProfiler, devProfiler);
 
       // Start tracking execution statistics for the method
       profiler.startExecutionInfoTracking();
@@ -1076,25 +1026,26 @@ public class DFE {
       try {
         Long startTime = System.nanoTime();
         mOutStream.write(RapidMessages.AC_OFFLOAD_REQ_AS);
-        RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REMOTE_SEND_DATA);
+        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REMOTE_SEND_DATA);
         result = sendAndExecute(m, pValues, o, mObjInStream, mObjOutStream);
 
         Long duration = System.nanoTime() - startTime;
         Log.d(TAG, "REMOTE " + m.getName() + ": Actual Send-Receive duration - "
             + duration / 1000000 + "ms");
         // Collect execution statistics
-        profiler.stopAndLogExecutionInfoTracking(prepareDataDuration, mPureRemoteDuration);
-        lastLogRecord = profiler.lastLogRecord;
+        lastLogRecord =
+            profiler.stopAndLogExecutionInfoTracking(prepareDataDuration, mPureRemoteDuration);
       } catch (Exception e) {
         // No such host exists, execute locally
         Log.e(TAG, "REMOTE ERROR: " + m.getName() + ": " + e);
-        // e.printStackTrace();
+        e.printStackTrace();
+        profiler.stopAndDiscardExecutionInfoTracking();
         result = executeLocally(m, pValues, o);
-        ConnectionRepair repair = new ConnectionRepair();
-        repair.start();
+        // ConnectionRepair repair = new ConnectionRepair();
+        // repair.start();
       }
 
-      RapidUtils.sendAnimationMsg(config, RapidMessages.AC_FINISHED_REMOTE);
+      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_FINISHED_REMOTE);
       return result;
     }
 
@@ -1112,8 +1063,6 @@ public class DFE {
       objOut.reset();
       Log.d(TAG, "Write Object and data");
 
-      Long startTx = NetworkProfiler.getProcessTxBytes();
-
       // Send the number of clones needed to execute the method
       objOut.writeInt(nrClones);
 
@@ -1130,8 +1079,6 @@ public class DFE {
       // Log.d(TAG, "Write method parameter values");
       objOut.writeObject(pValues);
       objOut.flush();
-
-      totalTxBytesObject = NetworkProfiler.getProcessTxBytes() - startTx;
     }
 
     /**
@@ -1152,24 +1099,26 @@ public class DFE {
      * @throws SecurityException
      * @throws IllegalArgumentException
      */
-    private Object sendAndExecute(Method m, Object[] pValues, Object o,
-        DynamicObjectInputStream objIn, ObjectOutputStream objOut)
+    private Object sendAndExecute(Method m, Object[] pValues, Object o, ObjectInputStream objIn,
+        ObjectOutputStream objOut)
         throws IOException, ClassNotFoundException, IllegalArgumentException, SecurityException,
         IllegalAccessException, InvocationTargetException, NoSuchMethodException {
 
       // Send the object itself
+      long startTx = NetworkProfiler.getProcessTxBytes();
       sendObject(o, m, pValues, objOut);
+      long totalTxBytesObject = NetworkProfiler.getProcessTxBytes() - startTx;
 
       // Read the results from the server
       Log.d(TAG, "Read Result");
 
-      Long startSend = System.nanoTime();
-      Long startRx = NetworkProfiler.getProcessRxBytes();
+      long t0 = System.nanoTime();
+      long startRx = NetworkProfiler.getProcessRxBytes();
       Object response = objIn.readObject();
 
       // Estimate the perceived bandwidth
       NetworkProfiler.addNewDlRateEstimate(NetworkProfiler.getProcessRxBytes() - startRx,
-          System.nanoTime() - startSend);
+          System.nanoTime() - t0);
 
       ResultContainer container = (ResultContainer) response;
       Object result;
@@ -1318,11 +1267,6 @@ public class DFE {
     return userChoice;
   }
 
-  public void setDataRate(int dataRate) {
-    if (netProfiler != null)
-      netProfiler.setDataRate(dataRate);
-  }
-
   public int getRegime() {
     return mRegime;
   }
@@ -1348,243 +1292,23 @@ public class DFE {
     return mContext;
   }
 
-  public double getLocalDataFraction() {
-    return localDataFraction;
-  }
-
-  public void setLocalDataFraction(double localDataFraction) {
-    this.localDataFraction = localDataFraction;
-  }
-
-  // Use these values in the experiments for the DSE testing.
-  private int dseTestMaxNrMethods = 90;
-  private int dseTestMinNrMethods = 10;
-  private int dseTestStepNrMethods = 10;
-  private int dseTestNrIterations = 1000;
-  private Random dseTestRandom = new Random();
-
-  /**
-   * Used to perform experimental testing on the performance of the DSE.
-   */
-  public void testDseWithDbCache() {
-
-    // Create a file where to write the measured duration of the dse queries
-    for (int nrMethods = dseTestMinNrMethods; nrMethods <= dseTestMaxNrMethods; nrMethods +=
-        dseTestStepNrMethods) {
-      // Create a db containing nrMethods*50 rows
-      createAndPopulateTestDbCache(nrMethods);
-      DSE dse = new DSE(mContext, Constants.LOCATION_DYNAMIC_TIME_ENERGY);
-
-      String dseTestFilePath =
-          Constants.TEST_LOGS_FOLDER + File.separator + "dse-dbcache-tests-" + nrMethods + ".dat";
-      BufferedWriter dseTestFileBuf =
-          createMeasurementFile(dseTestFilePath, "# nrMethods\t queryDuration (ms)\n");
-
-      // Perform queries on the DB and measure the duration of the queries in ms
-      for (int i = 0; i < dseTestNrIterations; i++) {
-        int methodIndex = dseTestRandom.nextInt(nrMethods);
-        long t0 = System.nanoTime();
-        dse.findExecLocation("appName-" + methodIndex, "methodName-" + methodIndex);
-        double duration = (System.nanoTime() - t0) / 1000000.0;
-        if (dseTestFileBuf != null) {
-          try {
-            dseTestFileBuf.append(nrMethods + "\t" + duration + "\n");
-          } catch (IOException e) {
-            Log.w(TAG, "Could not write in dseTestFile: " + e);
-          }
-        }
-      }
-
-      if (dseTestFileBuf != null) {
-        try {
-          dseTestFileBuf.close();
-        } catch (IOException e) {
-          Log.w(TAG, "Error closing dseTestFileBuf: " + e);
-        }
-      }
-    }
-  }
-
-  private void createAndPopulateTestDbCache(int nrMethods) {
-    // First create a testing DB
-    DBCache dbCache = DBCache.getDbCache();
-    dbCache.clearDbCache();
-
-    // Insert some dummy entries in the database cache to populate it.
-    int[] nrRemainingRowsToInsert = new int[nrMethods];
-    for (int i = 0; i < nrMethods; i++) {
-      nrRemainingRowsToInsert[i] = Constants.MAX_METHOD_EXEC_HISTORY;
-    }
-
-    for (int i = 0; i < Constants.MAX_METHOD_EXEC_HISTORY * nrMethods;) {
-      int j = dseTestRandom.nextInt(nrMethods);
-      if (nrRemainingRowsToInsert[j] > 0) {
-        dbCache.insertEntry(createRandomDbEntry("appName-" + j, "methodName-" + j));
-        nrRemainingRowsToInsert[j]--;
-        i++;
-      }
-    }
-
-    Log.i(TAG,
-        String.format("Created DB cache with %d entries and populated with %d random measurements",
-            dbCache.size(), dbCache.nrElements()));
-    assert dbCache.size() == nrMethods;
-  }
-
-  private BufferedWriter createMeasurementFile(String filePath, String header) {
-    File dseTestFile = new File(filePath);
-    BufferedWriter dseTestFileBuf = null;
-    try {
-      dseTestFile.delete();
-      boolean createdNewFile = dseTestFile.createNewFile();
-      dseTestFileBuf = new BufferedWriter(new FileWriter(dseTestFile, true));
-      if (createdNewFile) {
-        dseTestFileBuf.write(header);
-      } else {
-        Log.e(TAG, "Could not create dseTestFile " + filePath);
-        return null;
-      }
-    } catch (IOException e1) {
-      Log.w(TAG, "Could not create dseTestFile " + filePath + ": " + e1);
-    }
-
-    return dseTestFileBuf;
-  }
-
-
-  /**
-   * Used to perform experimental testing on the performance of the DSE.
-   */
-  public void testDseWithDb() {
-
-    // Create a file where to write the measured duration of the dse queries
-    for (int nrMethods = dseTestMinNrMethods; nrMethods <= dseTestMaxNrMethods; nrMethods +=
-        dseTestStepNrMethods) {
-      // Create a db containing nrMethods*50 rows
-      String dbName = "rapid-test-" + nrMethods + "-methods" + ".db";
-      DatabaseQuery testDbQuery = createAndPopulateTestDb(dbName, nrMethods);
-      DSE dse = new DSE(mContext, Constants.LOCATION_DYNAMIC_TIME_ENERGY, dbName);
-
-      String dseTestFilePath =
-          Constants.TEST_LOGS_FOLDER + File.separator + "dse-db-tests-" + nrMethods + ".dat";
-      BufferedWriter dseTestFileBuf =
-          createMeasurementFile(dseTestFilePath, "# nrMethods\t queryDuration (ms)\n");
-
-      // Perform queries on the DB and measure the duration of the queries in ms
-      for (int i = 0; i < dseTestNrIterations; i++) {
-        int methodIndex = dseTestRandom.nextInt(nrMethods);
-        long t0 = System.nanoTime();
-        dse.findExecLocationDB("appName-" + methodIndex, "methodName-" + methodIndex);
-        double duration = (System.nanoTime() - t0) / 1000000.0;
-
-        if (dseTestFileBuf != null) {
-          try {
-            dseTestFileBuf.append(nrMethods + "\t" + duration + "\n");
-          } catch (IOException e) {
-            Log.w(TAG, "Could not write in dseTestFile: " + e);
-          }
-        }
-      }
-
-      try {
-        testDbQuery.destroy();
-      } catch (Throwable e) {
-        Log.e(TAG, "Error while closing DB " + dbName + ": " + e);
-      }
-
-      if (dseTestFileBuf != null) {
-        try {
-          dseTestFileBuf.close();
-        } catch (IOException e) {
-          Log.w(TAG, "Error closing dseTestFileBuf: " + e);
-        }
-      }
-    }
+  public void setDataRate(int dataRate) {
+    NetworkProfiler.setDataRate(dataRate);
   }
 
   /**
-   * Create a DB and populate with <code>50 * nrMethods</code> rows, where 50 is the limit of rows
-   * we want to keep per method so that we only keep the most recent ones.
-   * 
-   * @param nrMethods
+   * Disable the profilers. Use for testing.
    */
-  private DatabaseQuery createAndPopulateTestDb(String dbName, int nrMethods) {
-    // First create a testing DB
-    DatabaseQuery testDbQuery = new DatabaseQuery(mContext, dbName);
-    // If the database already existed then now it is open. Delete the entries from previous
-    // experiments.
-    testDbQuery.clearTable();
-
-    // Insert some dummy entries in the database to populate it.
-    int[] nrRemainingRowsToInsert = new int[nrMethods];
-    for (int i = 0; i < nrMethods; i++) {
-      nrRemainingRowsToInsert[i] = Constants.MAX_METHOD_EXEC_HISTORY;
-    }
-
-    Random r = new Random();
-    for (int i = 0; i < Constants.MAX_METHOD_EXEC_HISTORY * nrMethods;) {
-      int j = r.nextInt(nrMethods);
-      if (nrRemainingRowsToInsert[j] > 0) {
-        insertRandomTestRow(testDbQuery, "appName-" + j, "methodName-" + j);
-        nrRemainingRowsToInsert[j]--;
-        i++;
-      }
-    }
-
-    return testDbQuery;
+  public void disableProfilers() {
+    profilersEnabled = false;
   }
 
   /**
-   * Insert a row with random values in the DB
-   * 
-   * @param testDbQuery
+   * Enable the profilers if they were disabled for testing.
    */
-  private void insertRandomTestRow(DatabaseQuery testDbQuery, String appName, String methodName) {
-    if (testDbQuery == null) {
-      return;
-    }
-
-    DBEntry entry = createRandomDbEntry(appName, methodName);
-
-    // Insert the new record in the DB
-    testDbQuery.appendData(DatabaseQuery.KEY_APP_NAME, appName);
-    testDbQuery.appendData(DatabaseQuery.KEY_METHOD_NAME, methodName);
-    testDbQuery.appendData(DatabaseQuery.KEY_EXEC_LOCATION, entry.getExecLocation());
-    testDbQuery.appendData(DatabaseQuery.KEY_NETWORK_TYPE, entry.getNetworkType());
-    testDbQuery.appendData(DatabaseQuery.KEY_NETWORK_SUBTYPE, entry.getNetworkSubType());
-    testDbQuery.appendData(DatabaseQuery.KEY_UL_RATE, Integer.toString(entry.getUlRate()));
-    testDbQuery.appendData(DatabaseQuery.KEY_DL_RATE, Integer.toString(entry.getDlRate()));
-    testDbQuery.appendData(DatabaseQuery.KEY_EXEC_DURATION, Long.toString(entry.getExecDuration()));
-    testDbQuery.appendData(DatabaseQuery.KEY_EXEC_ENERGY, Long.toString(entry.getExecEnergy()));
-    testDbQuery.appendData(DatabaseQuery.KEY_TIMESTAMP, Long.toString(entry.getTimestamp()));
-    testDbQuery.addRow();
-
+  public void enableProfilers() {
+    profilersEnabled = true;
   }
-
-  private DBEntry createRandomDbEntry(String appName, String methodName) {
-    int minRate = 100 * 1024; // 100 Kb/s
-    int maxRate = 10 * 1024 * 1024; // 10 Mb/s
-    int ulRate = minRate + dseTestRandom.nextInt(maxRate - minRate);
-    int dlRate = minRate + dseTestRandom.nextInt(maxRate - minRate);
-
-    String execLocation = dseTestRandom.nextBoolean() ? "LOCAL" : "REMOTE";
-    String netType = NetworkProfiler.currentNetworkTypeName;
-    String netSubType = NetworkProfiler.currentNetworkSubtypeName;
-
-    int minDur = 10; // ms
-    int maxDur = 5 * 60 * 1000; // ms
-    int duration = minDur + dseTestRandom.nextInt(maxDur - minDur);
-
-    int minEnergy = 10; // mJ
-    int maxEnergy = 5 * 60 * 1000; // mJ
-    int energy = minDur + dseTestRandom.nextInt(maxEnergy - minEnergy);
-
-    DBEntry entry = new DBEntry(appName, methodName, execLocation, netType, netSubType, ulRate,
-        dlRate, duration, energy);
-
-    return entry;
-  }
-
 
   /**
    * Used to measure the costs of connection with the clone when using different communication
@@ -1755,8 +1479,6 @@ public class DFE {
     try {
       Thread.sleep(millis);
     } catch (InterruptedException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
     }
   }
 }

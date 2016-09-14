@@ -30,6 +30,7 @@ public abstract class Phone {
   double betaBrightness;
 
   // WiFi
+  double betaWiFiHigh;
   int betaWiFiLow;
 
   // 3G
@@ -153,11 +154,16 @@ public abstract class Phone {
    * 
    */
   private double estimateWiFiEnergy(int duration) {
+
+    if (netProfiler == null) {
+      return 0;
+    }
+
     double estimatedWiFiEnergy = 0;
     boolean inHighPowerState = false;
     int nRxPackets, nTxPackets;
     double betaRChannel;
-    double betaWiFiHigh;
+    // double betaWiFiHigh;
     double Rdata;
 
     for (int i = 0; i < duration; i++) {
@@ -217,15 +223,26 @@ public abstract class Phone {
    * 
    */
   private double estimate3GEnergy(int duration) {
+
+    if (netProfiler == null) {
+      return 0;
+    }
+
     double estimated3GEnergy = 0;
 
     for (int i = 0; i < duration; i++) {
-      if (netProfiler.get3GActiveState(i) == NetworkProfiler.THREEG_IN_IDLE_STATE) {
-        estimated3GEnergy += beta3GIdle;
-      } else if (netProfiler.get3GActiveState(i) == NetworkProfiler.THREEG_IN_FACH_STATE) {
-        estimated3GEnergy += beta3GFACH;
-      } else {
-        estimated3GEnergy += beta3GDCH;
+      switch (netProfiler.get3GActiveState(i)) {
+        case NetworkProfiler.THREEG_IN_IDLE_STATE:
+          estimated3GEnergy += beta3GIdle;
+          break;
+
+        case NetworkProfiler.THREEG_IN_FACH_STATE:
+          estimated3GEnergy += beta3GFACH;
+          break;
+
+        case NetworkProfiler.THREEG_IN_DCH_STATE:
+          estimated3GEnergy += beta3GDCH;
+          break;
       }
     }
 
