@@ -31,7 +31,7 @@ public class RapidServerActivity extends Activity {
 
     Log.d(TAG, "onCreate");
 
-    ComponentName comp = new ComponentName(getPackageName(), ExecutionServer.class.getName());
+    ComponentName comp = new ComponentName(getPackageName(), AccelerationServer.class.getName());
     startService(new Intent().setComponent(comp));
 
   }

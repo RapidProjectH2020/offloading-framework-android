@@ -23,7 +23,7 @@
     android:versionName="1.0" >
 
     <uses-sdk
-        android:minSdkVersion="9"
+        android:minSdkVersion="14"
         android:targetSdkVersion="23" />
 
     <uses-permission android:name="android.permission.INTERNET" />
@@ -31,6 +31,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
     <application
         android:allowBackup="true"
@@ -46,10 +47,10 @@
             </intent-filter>
         </activity>
 
-        <service android:name="eu.project.rapid.as.ExecutionServer"
+        <service android:name="eu.project.rapid.as.AccelerationServer"
             android:exported="false" >
             <intent-filter>
-                <action android:name="eu.project.rapid.as.ExecutionServer" />
+                <action android:name="eu.project.rapid.as.AccelerationServer" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -58,7 +59,7 @@
             </intent-filter>
         </service>
 
-        <receiver android:name="eu.project.rapid.as.ExecutionServerAutoStarter" >
+        <receiver android:name="eu.project.rapid.as.AccelerationServerAutoStarter" >
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
 

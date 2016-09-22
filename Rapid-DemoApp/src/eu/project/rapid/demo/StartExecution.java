@@ -56,7 +56,7 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
   private Handler handler;
 
   private String vmIp;
-  private DFE dFE;
+  private DFE dfe;
   private boolean useRapidInfrastructure;
 
   /** Called when the activity is first created. */
@@ -88,9 +88,9 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
     // i.e. the DS, the VMM, the SLAM, etc., which means that the DFE will select automatically a
     // VM. We leave the user select a VM manually for fast deploy and testing.
     if (vmIp == null) {
-      dFE = new DFE(getPackageName(), getPackageManager(), this);
+      dfe = new DFE(getPackageName(), getPackageManager(), this);
     } else {
-      dFE = new DFE(getPackageName(), getPackageManager(), this, new Clone("vb-clone-0", vmIp));
+      dfe = new DFE(getPackageName(), getPackageManager(), this, new Clone("vb-clone-0", vmIp));
     }
   }
 
@@ -117,8 +117,8 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
     super.onDestroy();
     Log.i(TAG, "onDestroy");
 
-    if (dFE != null) {
-      dFE.onDestroy();
+    if (dfe != null) {
+      dfe.onDestroy();
     }
   }
 
@@ -129,34 +129,35 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
   }
 
   public void onClickLoader1(View v) {
-    TestRemoteable test = new TestRemoteable(dFE);
+    TestRemoteable test = new TestRemoteable(dfe);
     String result = test.cpuLoader1();
     Toast.makeText(StartExecution.this, result, Toast.LENGTH_SHORT).show();
   }
 
   public void onClickLoader2(View v) {
-    TestRemoteable test = new TestRemoteable(dFE);
+    TestRemoteable test = new TestRemoteable(dfe);
     String result = test.cpuLoader2();
     Toast.makeText(StartExecution.this, result, Toast.LENGTH_SHORT).show();
   }
 
   public void onClickLoader3(View v) {
-    TestRemoteable test = new TestRemoteable(dFE);
+    TestRemoteable test = new TestRemoteable(dfe);
     long result = test.cpuLoader3((int) System.currentTimeMillis());
     Toast.makeText(StartExecution.this, "Result: " + result, Toast.LENGTH_SHORT).show();
   }
 
   public void onClickJni1(View v) {
-    JniTest jni = new JniTest(dFE);
+    JniTest jni = new JniTest(dfe);
 
     String result = jni.jniCaller();
+    Log.i(TAG, "Result of jni invocation: " + result);
 
     Toast.makeText(StartExecution.this, result, Toast.LENGTH_SHORT).show();
   }
 
   public void onClickSudoku(View v) {
 
-    Sudoku sudoku = new Sudoku(dFE);
+    Sudoku sudoku = new Sudoku(dfe);
 
     boolean result = sudoku.hasSolution();
 
@@ -179,7 +180,7 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
 
     @Override
     protected Integer doInBackground(Void... params) {
-      VirusScanning virusScanner = new VirusScanning(getApplicationContext(), dFE, nrClones);
+      VirusScanning virusScanner = new VirusScanning(getApplicationContext(), dfe, nrClones);
       int nrIterations = 1;
 
       sleep(0 * 1000);
@@ -218,22 +219,16 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
 
     @Override
     protected Integer doInBackground(Void... params) {
-      int nrTests = 1;
 
       Spinner nrQueensSpinner = (Spinner) findViewById(R.id.spinnerNrQueens);
       int nrQueens = Integer.parseInt((String) nrQueensSpinner.getSelectedItem());
 
-      NQueens puzzle = new NQueens(dFE, nrClones);
-
       int result = -1;
-      for (int i = 0; i < nrTests; i++) {
-        // Choosing a random number of queens for testing purposes.
-        // nrQueens = 4 + new Random().nextInt(3);
+      NQueens puzzle = new NQueens(dfe, nrClones);
 
-        Log.i(TAG, "Nr Queens: " + nrQueens);
-        result = puzzle.solveNQueens(nrQueens);
-        Log.i(TAG, "EightQueens solved, solutions: " + result);
-      }
+      result = puzzle.solveNQueens(nrQueens);
+
+      Log.i(TAG, nrQueens + "-Queens solved, solutions: " + result);
       return result;
     }
 
@@ -259,7 +254,7 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
     protected Void doInBackground(Void... params) {
       int nrTests = 1;
 
-      GVirtusDemo gvirtusDemo = new GVirtusDemo(dFE);
+      GVirtusDemo gvirtusDemo = new GVirtusDemo(dfe);
       for (int i = 0; i < nrTests; i++) {
         Log.i(TAG, "------------ Started running the GVirtuS deviceQuery demo.");
         try {
@@ -304,8 +299,7 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
 
     @Override
     protected Void doInBackground(Void... params) {
-      dFE.testDseWithDbCache();
-      dFE.testDseWithDb();
+      Log.i(TAG, "Deleted the DSE testing implementation on 14/09/2016 15:47. Check the commits.");
       return null;
     }
 
@@ -322,27 +316,27 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
     switch (radioButton.getId()) {
 
       case R.id.radio_local:
-        dFE.setUserChoice(Constants.LOCATION_LOCAL);
+        dfe.setUserChoice(Constants.LOCATION_LOCAL);
         break;
 
       case R.id.radio_remote:
-        dFE.setUserChoice(Constants.LOCATION_REMOTE);
+        dfe.setUserChoice(Constants.LOCATION_REMOTE);
         break;
 
       // case R.id.radio_hybrid:
-      // dFE.setUserChoice(Constants.LOCATION_HYBRID);
+      // dfe.setUserChoice(Constants.LOCATION_HYBRID);
       // break;
 
       case R.id.radio_exec_time:
-        dFE.setUserChoice(Constants.LOCATION_DYNAMIC_TIME);
+        dfe.setUserChoice(Constants.LOCATION_DYNAMIC_TIME);
         break;
 
       case R.id.radio_energy:
-        dFE.setUserChoice(Constants.LOCATION_DYNAMIC_ENERGY);
+        dfe.setUserChoice(Constants.LOCATION_DYNAMIC_ENERGY);
         break;
 
       case R.id.radio_exec_time_energy:
-        dFE.setUserChoice(Constants.LOCATION_DYNAMIC_TIME_ENERGY);
+        dfe.setUserChoice(Constants.LOCATION_DYNAMIC_TIME_ENERGY);
         break;
     }
   }
@@ -353,7 +347,7 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
 
       nrClones = Integer.parseInt((String) parent.getItemAtPosition(pos));
       Log.i(TAG, "Number of clones: " + nrClones);
-      dFE.setNrClones(nrClones);
+      dfe.setNrClones(nrClones);
     }
 
     public void onNothingSelected(AdapterView<?> arg0) {

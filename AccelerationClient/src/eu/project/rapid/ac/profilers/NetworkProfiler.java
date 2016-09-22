@@ -85,7 +85,7 @@ public class NetworkProfiler {
   private WifiManager wifiManager;
   private static BroadcastReceiver networkStateReceiver;
 
-  private boolean stopReadingFiles;
+  private boolean stopEstimatingEnergy;
   private ArrayList<Long> wifiTxPackets;
   private ArrayList<Long> wifiRxPackets;
   private ArrayList<Long> wifiTxBytes; // uplink data rate
@@ -96,8 +96,7 @@ public class NetworkProfiler {
 
   // For measuring the nr of bytes sent and received
   private final static int uid = android.os.Process.myUid();
-  private Long startRxBytes;
-  private Long startTxBytes;
+  private long duration;
   // Needed by Profiler
   public long rxBytes;
   public long txBytes;
@@ -106,7 +105,7 @@ public class NetworkProfiler {
    * Constructor used to create a network profiler instance during method execution
    */
   public NetworkProfiler() {
-    stopReadingFiles = false;
+    stopEstimatingEnergy = false;
     wifiTxPackets = new ArrayList<Long>();
     wifiRxPackets = new ArrayList<Long>();
     wifiTxBytes = new ArrayList<Long>();
@@ -152,7 +151,7 @@ public class NetworkProfiler {
      */
   }
 
-  public static void addNewUlRateEstimate(long bytes, long nanoTime) {
+  private static void addNewUlRateEstimate(long bytes, long nanoTime) {
 
     Log.d(TAG, "Sent " + bytes + " bytes in " + nanoTime + "ns");
     int ulRate = (int) ((((double) 8 * bytes) / nanoTime) * 1000000000);
@@ -178,7 +177,7 @@ public class NetworkProfiler {
     // uploadRateHandler.postDelayed(uploadRunnable, delayRefreshUlRate);
   }
 
-  public static void addNewDlRateEstimate(long bytes, long nanoTime) {
+  private static void addNewDlRateEstimate(long bytes, long nanoTime) {
 
     Log.d(TAG, "Received " + bytes + " bytes in " + nanoTime + "ns");
     int dlRate = (int) ((((double) 8 * bytes) / nanoTime) * 1000000000);
@@ -247,8 +246,9 @@ public class NetworkProfiler {
    */
   public void startTransmittedDataCounting() {
 
-    startRxBytes = getProcessRxBytes();
-    startTxBytes = getProcessTxBytes();
+    rxBytes = getProcessRxBytes();
+    txBytes = getProcessTxBytes();
+    duration = System.nanoTime();
 
     if (telephonyManager != null) {
       if (currentNetworkTypeName.equals("WIFI")) {
@@ -265,7 +265,7 @@ public class NetworkProfiler {
   public void stopAndCollectTransmittedData() {
 
     synchronized (this) {
-      stopReadingFiles = true;
+      stopEstimatingEnergy = true;
     }
 
     // Need this for energy estimation
@@ -274,10 +274,15 @@ public class NetworkProfiler {
       calculateUplinkDataRate();
     }
 
-    rxBytes = getProcessRxBytes() - startRxBytes;
-    txBytes = getProcessTxBytes() - startTxBytes;
+    rxBytes = getProcessRxBytes() - rxBytes;
+    txBytes = getProcessTxBytes() - txBytes;
+    duration = System.nanoTime() - duration;
 
-    Log.d(TAG, "UID: " + uid + " RX bytes: " + rxBytes + " TX bytes: " + txBytes);
+    addNewDlRateEstimate(rxBytes, duration);
+    addNewUlRateEstimate(txBytes, duration);
+
+    Log.d(TAG, "UID: " + uid + " RX bytes: " + rxBytes + " TX bytes: " + txBytes + " duration: "
+        + duration + " ns");
   }
 
   /**
@@ -412,7 +417,7 @@ public class NetworkProfiler {
     Thread t = new Thread() {
       public void run() {
 
-        while (!stopReadingFiles) {
+        while (!stopEstimatingEnergy) {
 
           wifiRxPackets.add(NetworkProfiler.getProcessRxPackets());
           wifiTxPackets.add(NetworkProfiler.getProcessTxPackets());
@@ -456,7 +461,7 @@ public class NetworkProfiler {
     Thread t = new Thread() {
       public void run() {
 
-        while (!stopReadingFiles) {
+        while (!stopEstimatingEnergy) {
 
           switch (threegState) {
             case THREEG_IN_IDLE_STATE:

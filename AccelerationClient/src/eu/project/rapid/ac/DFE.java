@@ -40,7 +40,10 @@ import java.security.PublicKey;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
@@ -77,7 +80,6 @@ import eu.project.rapid.ac.d2d.D2DClientService;
 import eu.project.rapid.ac.d2d.PhoneSpecs;
 import eu.project.rapid.ac.db.DBCache;
 import eu.project.rapid.ac.profilers.DeviceProfiler;
-import eu.project.rapid.ac.profilers.LogRecord;
 import eu.project.rapid.ac.profilers.NetworkProfiler;
 import eu.project.rapid.ac.profilers.Profiler;
 import eu.project.rapid.ac.profilers.ProgramProfiler;
@@ -85,6 +87,7 @@ import eu.project.rapid.ac.utils.Constants;
 import eu.project.rapid.ac.utils.Utils;
 import eu.project.rapid.common.Clone;
 import eu.project.rapid.common.Configuration;
+import eu.project.rapid.common.RapidConstants;
 import eu.project.rapid.common.RapidMessages;
 import eu.project.rapid.common.RapidUtils;
 import eu.project.rapid.gvirtusfe.Frontend;
@@ -99,7 +102,7 @@ public class DFE {
 
   private static final String TAG = "DFE";
 
-  public static boolean CONNECT_TO_PREVIOUS_VM = true;
+  public static boolean CONNECT_TO_PREVIOUS_VM = false;
   public static final int COMM_CLEAR = 1;
   public static final int COMM_SSL = 2;
 
@@ -128,7 +131,7 @@ public class DFE {
   private DSE mDSE;
   NetworkProfiler netProfiler;
 
-  private boolean profilersEnabled = true;
+  // private boolean profilersEnabled = true;
 
   // GVirtuS frontend is responsible for running the CUDA code.
   private Frontend gVirtusFrontend;
@@ -139,9 +142,10 @@ public class DFE {
   private static InputStream mInStream;
   private static ObjectInputStream mObjInStream;
 
-  public LogRecord lastLogRecord;
-  private int myId = -1;
-  private int myIdWithDS = -1;
+  private long myId = -1;
+  private String vmIp = "";
+  private String slamIp = "";
+  // public LogRecord lastLogRecord;
   private PhoneSpecs myPhoneSpecs;
 
   private Set<PhoneSpecs> d2dSetPhones = new TreeSet<PhoneSpecs>();
@@ -178,16 +182,17 @@ public class DFE {
     sClone = clone;
     this.myPhoneSpecs = PhoneSpecs.getPhoneSpecs(mContext);
 
+    Log.i(TAG, "Current device: " + myPhoneSpecs);
+
     createRapidFoldersIfNotExist();
     readConfigurationFile();
     initializeCrypto();
 
-    // This makes the framework reconnect to the previous clone
-    if (CONNECT_TO_PREVIOUS_VM) {
-      SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this.mContext);
-      myId = prefs.getInt(Constants.MY_OLD_ID, -1);
-      myIdWithDS = prefs.getInt(Constants.MY_OLD_ID_WITH_DS, -1);
-    }
+    // The prev id is useful to the DS so that it can release already allocated VMs.
+    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this.mContext);
+    myId = prefs.getLong(Constants.MY_OLD_ID, -1);
+    vmIp = prefs.getString(Constants.PREV_VM_IP, "");
+    slamIp = prefs.getString(Constants.PREV_SLAM_IP, "");
 
     mDSE = new DSE(userChoice);
 
@@ -306,12 +311,8 @@ public class DFE {
     @Override
     protected Void doInBackground(Clone... clone) {
       if (clone[0] == null) {
-        publishProgress("Connecting to the DS to get available VM Managers");
-        getInfoFromDS();
-
-        publishProgress("Connecting to the Manager " + config.getManagerIp() + ":"
-            + config.getManagerPort() + " to ask for the clone");
-        sClone = getInfoFromManager();
+        publishProgress("Registering with the DS and the SLAM...");
+        registerWithDsAndSlam();
       } else {
         publishProgress("Using the clone given by the user: " + clone[0]);
         sClone = clone[0];
@@ -396,6 +397,190 @@ public class DFE {
     protected void onPreExecute() {
       Log.i(TAG, "Started initial network tasks");
     }
+
+    private boolean registerWithDsAndSlam() {
+      Log.i(TAG, "Registering...");
+      if (registerWithDs()) {
+        // register with SLAM
+        if (registerWithSlam()) {
+
+          myId = sClone.getId();
+          vmIp = sClone.getIp();
+
+          Log.i(TAG, "Saving my ID and the vmIp: " + myId + ", " + vmIp);
+          SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
+          SharedPreferences.Editor editor = prefs.edit();
+
+          editor.putLong(Constants.MY_OLD_ID, myId);
+          editor.putString(Constants.PREV_VM_IP, vmIp);
+
+          Log.i(TAG, "Saving the SLAM IP: " + slamIp);
+          editor.putString(Constants.PREV_SLAM_IP, slamIp);
+          editor.commit();
+
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    /**
+     * Read the config file to get the IP and port of the DS. The DS will return a list of available
+     * SLAMs, choose the best one from the list and connect to it to ask for a VM.
+     * 
+     * @throws IOException
+     * @throws UnknownHostException
+     * @throws ClassNotFoundException
+     */
+    private boolean registerWithDs() {
+
+      Log.d(TAG, "Starting as phone with ID: " + myId);
+
+      Socket dsSocket = null;
+      ObjectOutputStream dsOut = null;
+      ObjectInputStream dsIn = null;
+
+      Log.i(TAG, "Registering with DS " + config.getDSIp() + ":" + config.getDSPort());
+      try {
+        dsSocket = new Socket();
+        dsSocket.connect(new InetSocketAddress(config.getDSIp(), config.getDSPort()), 10 * 1000);
+        dsOut = new ObjectOutputStream(dsSocket.getOutputStream());
+        dsIn = new ObjectInputStream(dsSocket.getInputStream());
+
+        // Send the name and id to the DS
+        if (CONNECT_TO_PREVIOUS_VM) {
+          Log.i(TAG, "AC_REGISTER_PREV_DS");
+
+          // Send message format: command (java byte), userId (java long), qosFlag (java int)
+          dsOut.writeByte(RapidMessages.AC_REGISTER_PREV_DS);
+          dsOut.writeLong(myId); // userId
+          dsOut.writeInt(RapidConstants.OS.ANDROID.ordinal());
+          dsOut.writeInt(RapidConstants.REGISTER_WITHOUT_QOS_PARAMS); // if there is QoS parameter,
+                                                                      // 1 else 0
+          dsOut.flush();
+
+          // Receive message format: status (java byte), userId (java long), VM ipAddress (java UTF)
+          byte status = dsIn.readByte();
+          Log.i(TAG, "Return Status: " + (status == RapidMessages.OK ? "OK" : "ERROR"));
+          if (status == RapidMessages.OK) {
+            myId = dsIn.readLong();
+            Log.i(TAG, "userId is: " + myId);
+            slamIp = dsIn.readUTF();
+            Log.i(TAG, "SLAM IP address is: " + slamIp);
+            config.setSlamIp(slamIp);
+            return true;
+          }
+        } else { // Connect to a new VM
+          Log.i(TAG, "AC_REGISTER_NEW_DS");
+          dsOut.writeByte(RapidMessages.AC_REGISTER_NEW_DS);
+          dsOut.writeLong(myId); // send my user ID so that my previous VM can be released
+          dsOut.writeInt(RapidConstants.OS.ANDROID.ordinal());
+          dsOut.writeInt(RapidConstants.REGISTER_WITHOUT_QOS_PARAMS); // if there is QoS parameter,
+                                                                      // 1 else 0 */
+          dsOut.flush();
+
+          // Receive message format: status (java byte), userId (java long), ipList (java object)
+          byte status = dsIn.readByte();
+          Log.i(TAG, "Return Status: " + (status == RapidMessages.OK ? "OK" : "ERROR"));
+          if (status == RapidMessages.OK) {
+            myId = dsIn.readLong();
+            Log.i(TAG, "New userId is: " + myId);
+
+            // Receiving a list with SLAM IPs
+            ArrayList<String> ipList = (ArrayList<String>) dsIn.readObject();
+            chooseBestSlam(ipList);
+            return true;
+          }
+        }
+      } catch (Exception e) {
+        Log.e(TAG, "Error while connecting with the DS: " + e);
+      } finally {
+        RapidUtils.closeQuietly(dsOut);
+        RapidUtils.closeQuietly(dsIn);
+        RapidUtils.closeQuietly(dsSocket);
+      }
+
+      return false;
+    }
+
+    private void chooseBestSlam(List<String> slamIPs) {
+      // FIXME Currently just choose the first one.
+      Log.i(TAG, "Choosing best SLAM...");
+      if (slamIPs == null || slamIPs.size() == 0) {
+        throw new NoSuchElementException("Exptected at least one SLAM, don't know how to proceed!");
+      } else {
+        Iterator<String> ipListIterator = slamIPs.iterator();
+        Log.i(TAG, "Received SLAM IP List: ");
+        while (ipListIterator.hasNext()) {
+          Log.i(TAG, ipListIterator.next());
+        }
+
+        slamIp = slamIPs.get(0);
+        config.setSlamIp(slamIp);
+      }
+    }
+
+    /**
+     * Read the config file to get the IP and port of Manager.<br>
+     * FIXME This is to be implemented together with Omer.
+     * 
+     * @throws IOException
+     * @throws UnknownHostException
+     * @throws ClassNotFoundException
+     */
+    private boolean registerWithSlam() {
+
+      Socket slamSocket = null;
+      ObjectOutputStream oos = null;
+      ObjectInputStream ois = null;
+
+      Log.i(TAG, "Registering with SLAM " + config.getSlamIp() + ":" + config.getSlamPort());
+      try {
+        slamSocket = new Socket();
+        slamSocket.connect(new InetSocketAddress(config.getSlamIp(), config.getSlamPort()),
+            10 * 1000);
+
+        oos = new ObjectOutputStream(slamSocket.getOutputStream());
+        ois = new ObjectInputStream(slamSocket.getInputStream());
+
+        if (CONNECT_TO_PREVIOUS_VM) {
+          // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VMM_PREV);
+        } else {
+          // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VMM_NEW);
+        }
+
+        // Send the id to the SLAM
+        oos.writeByte(RapidMessages.AC_REGISTER_SLAM);
+        oos.writeInt(RapidConstants.OS.ANDROID.ordinal());
+        oos.writeLong(myId);
+        oos.flush();
+
+        int response = ois.readByte();
+        if (response == RapidMessages.OK) {
+          Log.i(TAG, "SLAM OK, getting the VM details");
+          String vmIp = ois.readUTF();
+
+          sClone = new Clone("", vmIp);
+          sClone.setId((int) myId);
+
+          return true;
+        } else if (response == RapidMessages.ERROR) {
+          Log.e(TAG, "SLAM registration replied with ERROR, VM will be null");
+        } else {
+          Log.e(TAG,
+              "SLAM registration replied with uknown message " + response + ", VM will be null");
+        }
+      } catch (IOException e) {
+        Log.e(TAG, "IOException while talking to the SLAM: " + e);
+      } finally {
+        RapidUtils.closeQuietly(oos);
+        RapidUtils.closeQuietly(ois);
+        RapidUtils.closeQuietly(slamSocket);
+      }
+
+      return false;
+    }
   }
 
   public void onDestroy() {
@@ -438,146 +623,6 @@ public class DFE {
         Log.e(TAG, "Error on D2DSetReader while trying to read the saved set of D2D phones: " + e);
       }
     }
-  }
-
-  /**
-   * Read the config file to get the IP and port of the DS. The DS will return a list of available
-   * VMMs, choose the best one from the list and connect to it to ask for a VM.
-   * 
-   * @throws IOException
-   * @throws UnknownHostException
-   * @throws ClassNotFoundException
-   */
-  private void getInfoFromDS() {
-
-    Log.d(TAG, "Starting as phone with ID: " + myId);
-
-    Socket dsSocket = null;
-    ObjectOutputStream oos = null;
-    ObjectInputStream ois = null;
-
-    try {
-      dsSocket = new Socket();
-      dsSocket.connect(new InetSocketAddress(config.getDSIp(), config.getDSPort()), 10 * 1000);
-
-      OutputStream os = dsSocket.getOutputStream();
-      InputStream is = dsSocket.getInputStream();
-
-      os.write(RapidMessages.PHONE_CONNECTION);
-
-      oos = new ObjectOutputStream(os);
-      ois = new ObjectInputStream(is);
-
-      // Send the name and id to the DS
-      if (CONNECT_TO_PREVIOUS_VM) {
-        os.write(RapidMessages.AC_REGISTER_PREV_DS);
-      } else {
-        os.write(RapidMessages.AC_REGISTER_NEW_DS);
-      }
-
-      oos.writeInt(myIdWithDS);
-      oos.flush();
-
-      myIdWithDS = ois.readInt();
-      ois.readInt(); // vvmId
-      String vmmIp = ois.readUTF();
-      config.setManagerPort(ois.readInt());
-      config.setAnimationServerIp(ois.readUTF());
-      config.setAnimationServerPort(ois.readInt());
-
-      // If the VM Manager is running on the same machine as the DS then the DS may return
-      // localhost as vmmIP.
-      if (vmmIp.equalsIgnoreCase("localhost") || vmmIp.equals("127.0.0.1")) {
-        vmmIp = config.getDSIp();
-      }
-      config.setManagerIp(vmmIp);
-
-      Log.i(TAG, "Saving my ID with the DS: " + myIdWithDS);
-      SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
-      SharedPreferences.Editor editor = prefs.edit();
-      editor.putInt(Constants.MY_OLD_ID_WITH_DS, myIdWithDS);
-      editor.commit();
-
-    } catch (IOException e) {
-      Log.e(TAG, "IOException while talking to the DS: " + e);
-      // e.printStackTrace();
-    } catch (Exception e) {
-      Log.e(TAG, "Exception while talking to the DS: " + e);
-      // e.printStackTrace();
-    } finally {
-      RapidUtils.closeQuietly(oos);
-      RapidUtils.closeQuietly(ois);
-      RapidUtils.closeQuietly(dsSocket);
-    }
-  }
-
-  /**
-   * Read the config file to get the IP and port of Manager.
-   * 
-   * @throws IOException
-   * @throws UnknownHostException
-   * @throws ClassNotFoundException
-   */
-  private Clone getInfoFromManager() {
-
-    Log.d(TAG, "Starting as phone with ID: " + myId);
-
-    Socket managerSocket = null;
-    ObjectOutputStream oos = null;
-    ObjectInputStream ois = null;
-    Clone clone = null;
-
-    try {
-      managerSocket = new Socket();
-      managerSocket.connect(new InetSocketAddress(config.getManagerIp(), config.getManagerPort()),
-          10 * 1000);
-
-      OutputStream os = managerSocket.getOutputStream();
-      InputStream is = managerSocket.getInputStream();
-
-      os.write(RapidMessages.PHONE_CONNECTION);
-
-      oos = new ObjectOutputStream(os);
-      ois = new ObjectInputStream(is);
-
-      if (CONNECT_TO_PREVIOUS_VM) {
-        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VMM_PREV);
-      } else {
-        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VMM_NEW);
-      }
-
-      // Send the name and id to the manager
-      os.write(RapidMessages.PHONE_AUTHENTICATION);
-      oos.writeInt(myId);
-      oos.flush();
-
-      clone = (Clone) ois.readObject();
-      if (clone.getName() == null) {
-        Log.w(TAG, "Manager could not assign a clone using id: " + myId);
-      } else {
-        myId = clone.getId();
-
-        Log.i(TAG, "Saving my ID: " + myId);
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putInt(Constants.MY_OLD_ID, myId);
-        editor.commit();
-      }
-
-    } catch (IOException e) {
-      Log.e(TAG, "IOException while talking to the manager: " + e);
-      // e.printStackTrace();
-    } catch (ClassNotFoundException e) {
-      Log.e(TAG, "ClassNotFoundException while receiving the clone from the manager: " + e);
-    } catch (Exception e) {
-      Log.e(TAG, "Exception while talking to the manager: " + e);
-    } finally {
-      RapidUtils.closeQuietly(oos);
-      RapidUtils.closeQuietly(ois);
-      RapidUtils.closeQuietly(managerSocket);
-    }
-
-    return clone;
   }
 
   /**
@@ -921,15 +966,13 @@ public class DFE {
       // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DECISION_LOCAL);
 
       Profiler profiler = null;
-      if (profilersEnabled) {
-        ProgramProfiler progProfiler = new ProgramProfiler(mAppName, m.getName());
-        DeviceProfiler devProfiler = new DeviceProfiler(mContext);
-        NetworkProfiler netProfiler = null;
-        profiler = new Profiler(mRegime, progProfiler, netProfiler, devProfiler);
+      ProgramProfiler progProfiler = new ProgramProfiler(mAppName, m.getName());
+      DeviceProfiler devProfiler = new DeviceProfiler(mContext);
+      NetworkProfiler netProfiler = null;
+      profiler = new Profiler(mRegime, progProfiler, netProfiler, devProfiler);
 
-        // Start tracking execution statistics for the method
-        profiler.startExecutionInfoTracking();
-      }
+      // Start tracking execution statistics for the method
+      profiler.startExecutionInfoTracking();
 
       // Make sure that the method is accessible
       // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_EXEC_LOCAL);
@@ -943,10 +986,7 @@ public class DFE {
 
       // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_FINISHED_LOCAL);
       // Collect execution statistics
-      if (profilersEnabled && profiler != null) {
-        lastLogRecord =
-            profiler.stopAndLogExecutionInfoTracking(prepareDataDuration, mPureLocalDuration);
-      }
+      profiler.stopAndLogExecutionInfoTracking(prepareDataDuration, mPureLocalDuration);
 
       return result;
     }
@@ -1033,8 +1073,7 @@ public class DFE {
         Log.d(TAG, "REMOTE " + m.getName() + ": Actual Send-Receive duration - "
             + duration / 1000000 + "ms");
         // Collect execution statistics
-        lastLogRecord =
-            profiler.stopAndLogExecutionInfoTracking(prepareDataDuration, mPureRemoteDuration);
+        profiler.stopAndLogExecutionInfoTracking(prepareDataDuration, mPureRemoteDuration);
       } catch (Exception e) {
         // No such host exists, execute locally
         Log.e(TAG, "REMOTE ERROR: " + m.getName() + ": " + e);
@@ -1105,20 +1144,11 @@ public class DFE {
         IllegalAccessException, InvocationTargetException, NoSuchMethodException {
 
       // Send the object itself
-      long startTx = NetworkProfiler.getProcessTxBytes();
       sendObject(o, m, pValues, objOut);
-      long totalTxBytesObject = NetworkProfiler.getProcessTxBytes() - startTx;
 
       // Read the results from the server
       Log.d(TAG, "Read Result");
-
-      long t0 = System.nanoTime();
-      long startRx = NetworkProfiler.getProcessRxBytes();
       Object response = objIn.readObject();
-
-      // Estimate the perceived bandwidth
-      NetworkProfiler.addNewDlRateEstimate(NetworkProfiler.getProcessRxBytes() - startRx,
-          System.nanoTime() - t0);
 
       ResultContainer container = (ResultContainer) response;
       Object result;
@@ -1137,9 +1167,6 @@ public class DFE {
 
       result = container.functionResult;
       mPureRemoteDuration = container.pureExecutionDuration;
-
-      // Estimate the perceived bandwidth
-      NetworkProfiler.addNewUlRateEstimate(totalTxBytesObject, container.getObjectDuration);
 
       Log.d(TAG, "Finished remote execution");
 
@@ -1179,8 +1206,6 @@ public class DFE {
         BufferedInputStream bis = new BufferedInputStream(fin);
 
         // Send the file
-        long startTime = System.nanoTime();
-        long startTxBytes = NetworkProfiler.getProcessTxBytes();
         Log.d(TAG, "Sending apk");
         int BUFFER_SIZE = 8192;
         byte[] tempArray = new byte[BUFFER_SIZE];
@@ -1191,9 +1216,6 @@ public class DFE {
         }
         mObjOutStream.flush();
         RapidUtils.closeQuietly(bis);
-
-        NetworkProfiler.addNewUlRateEstimate(NetworkProfiler.getProcessTxBytes() - startTxBytes,
-            System.nanoTime() - startTime);
       }
     } catch (IOException e) {
       fallBackToLocalExecution("IOException: " + e.getMessage());
@@ -1294,20 +1316,6 @@ public class DFE {
 
   public void setDataRate(int dataRate) {
     NetworkProfiler.setDataRate(dataRate);
-  }
-
-  /**
-   * Disable the profilers. Use for testing.
-   */
-  public void disableProfilers() {
-    profilersEnabled = false;
-  }
-
-  /**
-   * Enable the profilers if they were disabled for testing.
-   */
-  public void enableProfilers() {
-    profilersEnabled = true;
   }
 
   /**

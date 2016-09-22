@@ -47,6 +47,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
+import org.apache.http.conn.util.InetAddressUtils;
+
 import android.content.Context;
 import android.telephony.TelephonyManager;
 import android.util.Log;
@@ -163,6 +165,56 @@ public class Utils {
   }
 
   /**
+   * read the file: /sys/devices/system/cpu/possible<br>
+   * output: 0-n
+   * 
+   * @return (n+1) or -1 if file not found.
+   */
+  public static int getDeviceNrCPUs() {
+    // read the file: /sys/devices/system/cpu/possible
+    // output: 0-3
+    Scanner s = null;
+    String fileName = "/sys/devices/system/cpu/possible";
+    try {
+      s = (new Scanner(new File(fileName)));
+      s.useDelimiter("[-\n]");
+      s.nextInt();
+      return s.nextInt() + 1;
+    } catch (Exception e) {
+      Log.e(TAG, "Could not read number of CPUs: " + e);
+    } finally {
+      if (s != null) {
+        s.close();
+      }
+    }
+
+    return -1;
+  }
+
+  /**
+   * read the file: /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq<br>
+   * output: 1190400 (in KHz)
+   * 
+   * @return The frequency of cpu0 in KHz or -1 if file not found
+   */
+  public static int getDeviceCPUFreq() {
+    String fileName = "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq";
+    Scanner s = null;
+    try {
+      s = (new Scanner(new File(fileName)));
+      return s.nextInt();
+    } catch (Exception e) {
+      Log.e(TAG, "Could not read frequence: " + e);
+    } finally {
+      if (s != null) {
+        s.close();
+      }
+    }
+
+    return -1;
+  }
+
+  /**
    * @param s The string to be hash-ed.
    * @return The byte array hash digested result.
    */
@@ -276,15 +328,18 @@ public class Utils {
     try {
       List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
       for (NetworkInterface intf : interfaces) {
+        Log.i(TAG, "Interface: " + intf);
         List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
         for (InetAddress addr : addrs) {
           // Sokol: FIXME remove the hard coded "wlan" check
           // Log.i(TAG, "IP: " + addr);
-          if (!addr.isLoopbackAddress() && addr.toString().contains("wlan")) {
+          if (intf.getDisplayName().contains("wlan") && !addr.isLoopbackAddress()
+              && InetAddressUtils.isIPv4Address(addr.getHostAddress())) {
             return addr;
           }
           // On emulator
-          if (!addr.isLoopbackAddress() && addr.toString().contains("eth0")) {
+          if (intf.getDisplayName().contains("eth0") && !addr.isLoopbackAddress()
+              && InetAddressUtils.isIPv4Address(addr.getHostAddress())) {
             return addr;
           }
         }
@@ -316,7 +371,6 @@ public class Utils {
     }
     return null;
   }
-
 
   /**
    * An empty file will be created automatically on the clone by Acceleration-Server. The presence

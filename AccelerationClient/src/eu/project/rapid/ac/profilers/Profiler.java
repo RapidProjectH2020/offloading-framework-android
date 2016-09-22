@@ -46,9 +46,6 @@ public class Profiler {
 
   private LogRecord lastLogRecord;
 
-  // Used for disabling the profilers when measuring the profilers' overhead.
-  public static boolean profilersEnabled = true;
-
   public Profiler(int regime, ProgramProfiler progProfiler, NetworkProfiler netProfiler,
       DeviceProfiler devProfiler) {
     this.progProfiler = progProfiler;
@@ -62,11 +59,6 @@ public class Profiler {
   }
 
   public void startExecutionInfoTracking() {
-
-    // The profilers will be disabled by the testing applications.
-    if (!profilersEnabled) {
-      return;
-    }
 
     if (netProfiler != null) {
       netProfiler.startTransmittedDataCounting();
@@ -82,35 +74,7 @@ public class Profiler {
     }
   }
 
-  /**
-   * Stop running profilers and discard current information
-   * 
-   */
-  public void stopAndDiscardExecutionInfoTracking() {
-
-    if (profilersEnabled) {
-
-      if (mRegime == REGIME_CLIENT) {
-        devProfiler.stopAndCollectDeviceProfiling();
-      }
-
-      progProfiler.stopAndCollectExecutionInfoTracking();
-
-      if (netProfiler != null) {
-        netProfiler.stopAndCollectTransmittedData();
-      }
-    }
-  }
-
-  /**
-   * Stop running profilers and log current information
-   * 
-   */
-  public LogRecord stopAndLogExecutionInfoTracking(long prepareDataDuration, Long pureExecTime) {
-
-    if (!profilersEnabled) {
-      return null;
-    }
+  private void stopProfilers() {
 
     if (mRegime == REGIME_CLIENT) {
       devProfiler.stopAndCollectDeviceProfiling();
@@ -121,6 +85,23 @@ public class Profiler {
     if (netProfiler != null) {
       netProfiler.stopAndCollectTransmittedData();
     }
+  }
+
+  /**
+   * Stop running profilers and discard current information
+   * 
+   */
+  public void stopAndDiscardExecutionInfoTracking() {
+    stopProfilers();
+  }
+
+  /**
+   * Stop running profilers and log current information
+   * 
+   */
+  public void stopAndLogExecutionInfoTracking(long prepareDataDuration, Long pureExecTime) {
+
+    stopProfilers();
 
     lastLogRecord = new LogRecord(progProfiler, netProfiler, devProfiler);
     lastLogRecord.prepareDataDuration = prepareDataDuration;
@@ -159,8 +140,6 @@ public class Profiler {
 
       updateDbCache();
     }
-
-    return lastLogRecord;
   }
 
   private void updateDbCache() {

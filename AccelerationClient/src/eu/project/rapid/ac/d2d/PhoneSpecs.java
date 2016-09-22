@@ -38,7 +38,7 @@ public class PhoneSpecs implements Serializable, Comparable<PhoneSpecs> {
                           // of this phone
   private String ip;
   private int nrCPUs; // number of CPU cores
-  private int cpuPowerMHz; // CPU power in MHz
+  private int cpuFreqKHz; // CPU frequency in KHz
   private int ramMB; // Memory in MB
   private boolean hasGpu;
 
@@ -55,10 +55,8 @@ public class PhoneSpecs implements Serializable, Comparable<PhoneSpecs> {
     // FIXME: On Android 6 we can't just read the ID directly, we need to ask for runtime
     // permission.
     phoneId = Utils.getDeviceIdHashHex(context);
-    // phoneId = "Motorola Moto G";
-    // nrCPUs = 1;
-    // phoneId = "Sony Xperia Z5";
-    // nrCPUs = 4;
+    nrCPUs = Utils.getDeviceNrCPUs();
+    cpuFreqKHz = Utils.getDeviceCPUFreq();
     try {
       ip = Utils.getIpAddress().getHostAddress();
     } catch (Exception e) {
@@ -132,17 +130,17 @@ public class PhoneSpecs implements Serializable, Comparable<PhoneSpecs> {
   }
 
   /**
-   * @return the cpuPowerMHz
+   * @return the cpuFreqKHz
    */
-  public int getCpuPowerMHz() {
-    return cpuPowerMHz;
+  public int getCpuPowerKHz() {
+    return cpuFreqKHz;
   }
 
   /**
-   * @param cpuPowerMHz the cpuPowerMHz to set
+   * @param cpuFreqKHz the cpuFreqKHz to set
    */
-  public void setCpuPowerMHz(int cpuPowerMHz) {
-    this.cpuPowerMHz = cpuPowerMHz;
+  public void setCpuPowerKHz(int cpuPowerKHz) {
+    this.cpuFreqKHz = cpuPowerKHz;
   }
 
   /**
@@ -211,9 +209,9 @@ public class PhoneSpecs implements Serializable, Comparable<PhoneSpecs> {
       return 0;
     }
 
-    if (this.nrCPUs > otherPhone.nrCPUs || this.cpuPowerMHz > otherPhone.cpuPowerMHz) {
+    if (this.nrCPUs > otherPhone.nrCPUs || this.cpuFreqKHz > otherPhone.cpuFreqKHz) {
       return 1;
-    } else if (this.cpuPowerMHz < otherPhone.cpuPowerMHz) {
+    } else if (this.cpuFreqKHz < otherPhone.cpuFreqKHz) {
       return -1;
     } else {
       return this.ramMB - otherPhone.ramMB;
@@ -222,7 +220,7 @@ public class PhoneSpecs implements Serializable, Comparable<PhoneSpecs> {
 
   @Override
   public String toString() {
-    return "ID=" + this.phoneId + ", nrCPUs=" + this.nrCPUs + ", CPU=" + this.cpuPowerMHz + " MHz"
+    return "ID=" + this.phoneId + ", nrCPUs=" + this.nrCPUs + ", CPU=" + this.cpuFreqKHz + " KHz"
         + ", RAM=" + this.ramMB + " MB" + ", GPU=" + this.hasGpu + ", IP=" + this.ip;
   }
 }

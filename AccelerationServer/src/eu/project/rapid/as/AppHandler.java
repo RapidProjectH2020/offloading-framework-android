@@ -18,6 +18,7 @@ package eu.project.rapid.as;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,6 +30,7 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
@@ -41,7 +43,6 @@ import java.util.zip.ZipFile;
 import android.content.Context;
 import android.util.Log;
 import dalvik.system.DexClassLoader;
-import eu.project.rapid.ac.DynamicObjectInputStream;
 import eu.project.rapid.ac.ResultContainer;
 import eu.project.rapid.ac.profilers.DeviceProfiler;
 import eu.project.rapid.ac.utils.Utils;
@@ -56,9 +57,9 @@ import eu.project.rapid.common.RapidUtils;
  * requests coming from the main clone when behaving as a clone helper.
  * 
  */
-public class ClientHandler {
+public class AppHandler {
 
-  private static final String TAG = "ClientHandler";
+  private static final String TAG = "AppHandler";
 
   private Configuration config;
   // The main thread has cloneId = 0
@@ -77,26 +78,26 @@ public class ClientHandler {
   private ArrayList<Clone> cloneHelpers; // Array containing the clone helpers
   private static boolean withMultipleClones = false; // True if more than one clone is requested,
                                                      // False otherwise.
-  static Boolean[] pausedHelper; // Needed for synchronization with the clone helpers
-  static int requestFromMainServer = 0; // The main clone sends commands to the clone helpers
-  static Object responsesFromServers; // Array of partial results returned by the clone helpers
-  static AtomicInteger nrClonesReady = new AtomicInteger(0); // The main thread waits for all the
-                                                             // clone helpers to finish execution
+  private Boolean[] pausedHelper; // Needed for synchronization with the clone helpers
+  private int requestFromMainServer = 0; // The main clone sends commands to the clone helpers
+  private Object responsesFromServers; // Array of partial results returned by the clone helpers
+  private AtomicInteger nrClonesReady = new AtomicInteger(0); // The main thread waits for all the
+  // clone helpers to finish execution
 
-  static String appName; // the app name sent by the phone
-  static int appLength; // the app length in bytes sent by the phone
-  static Object objToExecute = new Object(); // the object to be executed sent by the phone
-  static String methodName; // the method to be executed
-  static Class<?>[] pTypes; // the types of the parameters passed to the method
-  static Object[] pValues; // the values of the parameters to be passed to the method
+  private String appName; // the app name sent by the phone
+  private int appLength; // the app length in bytes sent by the phone
+  private Object objToExecute = new Object(); // the object to be executed sent by the phone
+  private String methodName; // the method to be executed
+  private Class<?>[] pTypes; // the types of the parameters passed to the method
+  private Object[] pValues; // the values of the parameters to be passed to the method
   private Class<?> returnType; // the return type of the method
-  static String apkFilePath; // the path where the apk is installed
+  private String apkFilePath; // the path where the apk is installed
 
   // Classloaders needed by the dynamicObjectInputStream
   private ClassLoader mCurrent = ClassLoader.getSystemClassLoader();
   private DexClassLoader mCurrentDexLoader = null;
 
-  public ClientHandler(Socket pClient, final Context cW, Configuration config) {
+  public AppHandler(Socket pClient, final Context cW, Configuration config) {
     Log.d(TAG, "New Client connected");
     this.mClient = pClient;
     this.mContext = cW;
@@ -390,6 +391,22 @@ public class ClientHandler {
       try {
         RapidUtils.sendAnimationMsg(config, RapidMessages.AC_EXEC_REMOTE);
         Long startExecTime = System.nanoTime();
+        try {
+          // long s = System.nanoTime();
+          Method prepareDataMethod =
+              objToExecute.getClass().getDeclaredMethod("prepareDataOnServer");
+          prepareDataMethod.setAccessible(true);
+          // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_PREPARE_DATA);
+          long s = System.nanoTime();
+          prepareDataMethod.invoke(objToExecute);
+          long prepareDataDuration = System.nanoTime() - s;
+          Log.w(TAG, "Executed method prepareDataOnServer() on " + (prepareDataDuration / 1000000)
+              + " ms");
+
+        } catch (NoSuchMethodException e) {
+          Log.w(TAG, "The method prepareDataOnServer() does not exist");
+        }
+
         result = runMethod.invoke(objToExecute, pValues);
         execDuration = System.nanoTime() - startExecTime;
         Log.d(TAG,
@@ -639,7 +656,7 @@ public class ClientHandler {
               // Used for measuring the costs of data receiving on the phone
               int size = mObjIs.readInt();
               s = System.nanoTime();
-              mObjOs.writeObject(ExecutionServer.bytesToSend.get(size));
+              mObjOs.writeObject(AccelerationServer.bytesToSend.get(size));
               mObjOs.flush();
               mIs.read();
               s = System.nanoTime() - s;
@@ -707,15 +724,15 @@ public class ClientHandler {
 
     try {
 
-      Log.d(TAG, "Trying to connect to the manager: " + config.getManagerIp());
+      Log.d(TAG, "Trying to connect to the manager: " + config.getVmmIp());
 
       // Connect to the directory service
-      socket = new Socket(config.getManagerIp(), config.getManagerPort());
+      socket = new Socket(config.getVmmIp(), config.getVmmPort());
       os = socket.getOutputStream();
       is = socket.getInputStream();
 
-      Log.d(TAG, "Connection established whith directory service " + config.getManagerIp() + ":"
-          + config.getManagerPort());
+      Log.d(TAG, "Connection established whith directory service " + config.getVmmIp() + ":"
+          + config.getVmmPort());
 
       // Tell DirService that this is a clone connecting
       os.write(RapidMessages.CLONE_CONNECTION);
@@ -744,7 +761,7 @@ public class ClientHandler {
         Log.i(TAG, c.toString());
 
         // Start the thread that should connect to the clone helper
-        (new CloneHelperThread(config, cloneHelperId++, c)).start();
+        (new VMHelperThread(config, cloneHelperId++, c)).start();
       }
 
       return true;
@@ -761,4 +778,212 @@ public class ClientHandler {
 
     return false;
   }
+
+
+  /**
+   * The thread taking care of communication with the VM helpers
+   *
+   */
+  public class VMHelperThread extends Thread {
+
+    private String TAG = "ServerHelper-";
+    private Configuration config;
+    private Clone clone;
+    private Socket mSocket;
+    private OutputStream mOutStream;
+    private InputStream mInStream;
+    private ObjectOutputStream mObjOutStream;
+    private DynamicObjectInputStream mObjInStream;
+
+    // This id is assigned to the clone helper by the main clone.
+    // It is needed for splitting the input when parallelizing a certain method (see for example
+    // virusScanning).
+    // To not be confused with the id that the AS has read from the config file.
+    private int cloneHelperId;
+
+    public VMHelperThread(Configuration config, int cloneHelperId, Clone clone) {
+      this.config = config;
+      this.clone = clone;
+      this.cloneHelperId = cloneHelperId;
+      TAG = TAG + this.cloneHelperId;
+    }
+
+    @Override
+    public void run() {
+
+      try {
+
+        // Try to connect to the clone helper.
+        // If it is not possible to connect stop running.
+        if (!establishConnection()) {
+          // Try to close created sockets
+          closeConnection();
+          return;
+        }
+
+        // Send the cloneId to this clone.
+        mOutStream.write(RapidMessages.CLONE_ID_SEND);
+        mOutStream.write(cloneHelperId);
+
+        while (true) {
+
+          synchronized (nrClonesReady) {
+            Log.d(TAG, "Server Helpers started so far: " + nrClonesReady.addAndGet(1));
+            if (nrClonesReady.get() >= AppHandler.numberOfCloneHelpers)
+              nrClonesReady.notifyAll();
+          }
+
+          /**
+           * wait() until the main server wakes up the thread then do something depending on the
+           * request
+           */
+          synchronized (pausedHelper) {
+            while (pausedHelper[cloneHelperId]) {
+              try {
+                pausedHelper.wait();
+              } catch (InterruptedException e) {
+              }
+            }
+
+            pausedHelper[cloneHelperId] = true;
+          }
+
+          Log.d(TAG, "Sending command: " + requestFromMainServer);
+
+          switch (requestFromMainServer) {
+
+            case RapidMessages.PING:
+              pingOtherServer();
+              break;
+
+            case RapidMessages.AC_REGISTER_AS:
+              mOutStream.write(RapidMessages.AC_REGISTER_AS);
+              mObjOutStream.writeObject(appName);
+              mObjOutStream.writeInt(appLength);
+              mObjOutStream.flush();
+
+              int response = mInStream.read();
+
+              if (response == RapidMessages.AS_APP_REQ_AC) {
+                // Send the APK file if needed
+                Log.d(TAG, "Sending apk to the clone " + clone.getIp());
+
+                File apkFile = new File(apkFilePath);
+                FileInputStream fin = new FileInputStream(apkFile);
+                BufferedInputStream bis = new BufferedInputStream(fin);
+                int BUFFER_SIZE = 8192;
+                byte[] tempArray = new byte[BUFFER_SIZE];
+                int read = 0;
+                int totalRead = 0;
+                Log.d(TAG, "Sending apk");
+                while ((read = bis.read(tempArray, 0, tempArray.length)) > -1) {
+                  totalRead += read;
+                  mObjOutStream.write(tempArray, 0, read);
+                  Log.d(TAG, "Sent " + totalRead + " of " + apkFile.length() + " bytes");
+                }
+                mObjOutStream.flush();
+                bis.close();
+              } else if (response == RapidMessages.AS_APP_PRESENT_AC) {
+                Log.d(TAG, "Application already registered on clone " + clone.getIp());
+              }
+              break;
+
+            case RapidMessages.AC_OFFLOAD_REQ_AS:
+              Log.d(TAG, "Asking clone " + clone.getIp() + " to parallelize the execution");
+
+              mOutStream.write(RapidMessages.AC_OFFLOAD_REQ_AS);
+
+              // Send the number of clones needed.
+              // Since this is a helper clone, only one clone should be requested.
+              mObjOutStream.writeInt(1);
+              mObjOutStream.writeObject(objToExecute);
+              mObjOutStream.writeObject(methodName);
+              mObjOutStream.writeObject(pTypes);
+              mObjOutStream.writeObject(pValues);
+              mObjOutStream.flush();
+
+              /**
+               * This is the response from the clone helper, which is a partial result of the method
+               * execution. This partial result is stored in an array, and will be later composed
+               * with the other partial results of the other clones to obtain the total desired
+               * result to be sent back to the phone.
+               */
+              Object cloneResult = mObjInStream.readObject();
+
+              ResultContainer container = (ResultContainer) cloneResult;
+
+              Log.d(TAG, "Received response from clone ip: " + clone.getIp() + " port: "
+                  + clone.getPort());
+              Log.d(TAG, "Writing in responsesFromServer in position: " + cloneHelperId);
+              synchronized (responsesFromServers) {
+                Array.set(responsesFromServers, cloneHelperId, container.functionResult);
+              }
+              break;
+
+            case -1:
+              closeConnection();
+              return;
+          }
+        }
+      } catch (IOException e) {
+        e.printStackTrace();
+      } catch (ClassNotFoundException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      } finally {
+        closeConnection();
+      }
+    }
+
+    private boolean establishConnection() {
+      try {
+
+        Log.d(TAG, "Trying to connect to clone " + clone.getIp() + ":" + clone.getPort());
+
+        mSocket = new Socket();
+        mSocket.connect(new InetSocketAddress(clone.getIp(), clone.getPort()), 10 * 1000);
+
+        mOutStream = mSocket.getOutputStream();
+        mInStream = mSocket.getInputStream();
+        mObjOutStream = new ObjectOutputStream(mOutStream);
+        mObjInStream = new DynamicObjectInputStream(mInStream);
+
+        Log.d(TAG, "Connection established whith clone " + clone.getIp());
+
+        return true;
+      } catch (Exception e) {
+        Log.e(TAG, "Exception not caught properly - " + e);
+        return false;
+      } catch (Error e) {
+        Log.e(TAG, "Error not caught properly - " + e);
+        return false;
+      }
+    }
+
+    private void pingOtherServer() {
+      try {
+        // Send a message to the Server Helper (other server)
+        Log.d(TAG, "PING other server");
+        mOutStream.write(eu.project.rapid.common.RapidMessages.PING);
+
+        // Read and display the response message sent by server helper
+        int response = mInStream.read();
+
+        if (response == RapidMessages.PONG)
+          Log.d(TAG, "PONG from other server: " + clone.getIp() + ":" + clone.getPort());
+        else {
+          Log.d(TAG, "Bad Response to Ping - " + response);
+        }
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
+
+    private void closeConnection() {
+      RapidUtils.closeQuietly(mObjOutStream);
+      RapidUtils.closeQuietly(mObjInStream);
+      RapidUtils.closeQuietly(mSocket);
+    }
+  }
+
 }

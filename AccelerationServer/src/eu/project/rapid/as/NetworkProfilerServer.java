@@ -95,15 +95,17 @@ public class NetworkProfilerServer implements Runnable {
 
                 @Override
                 public void run() {
-                  try {
-                    Thread.sleep(3000);
-                  } catch (InterruptedException e1) {
-                  } finally {
+                  long t0 = System.nanoTime();
+                  long elapsed = 0;
+                  while (elapsed < 3000) {
                     try {
-                      clientSocket.close();
-                    } catch (IOException e) {
+                      Thread.sleep(3000 - elapsed);
+                    } catch (InterruptedException e1) {
+                    } finally {
+                      elapsed = (System.nanoTime() - t0) / 1000000;
                     }
                   }
+                  RapidUtils.closeQuietly(clientSocket);
                 }
 
               }).start();

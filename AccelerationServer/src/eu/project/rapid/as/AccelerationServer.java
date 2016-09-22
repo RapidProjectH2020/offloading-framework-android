@@ -19,16 +19,16 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.OutputStream;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -41,6 +41,9 @@ import java.security.cert.CertificateException;
 import java.util.Random;
 
 import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
 
 import android.app.Service;
 import android.content.Context;
@@ -58,10 +61,10 @@ import eu.project.rapid.common.RapidUtils;
 
 /**
  * Execution server which waits for incoming connections and starts a separate thread for each of
- * them, leaving the ClientHandler to actually deal with the clients
+ * them, leaving the AppHandler to actually deal with the clients
  * 
  */
-public class ExecutionServer extends Service {
+public class AccelerationServer extends Service {
 
   private Context context;
 
@@ -70,12 +73,13 @@ public class ExecutionServer extends Service {
   private static final boolean TESTING_UL_DL_RATE = false;
   public static SparseArray<byte[]> bytesToSend;
 
-  private static final String TAG = "ExecutionServer";
+  private static final String TAG = "AccelerationServer";
   private Configuration config;
 
   public static boolean asServiceRunning = true;
-  private boolean managerThreadFinished = false;
-  private boolean okTalkingToManager = false;
+  private static long userId = -1; // The userId will be given by the VMM
+  private static long vmId = -1; // The vmId will be assigned by the DS
+  private static String vmIp = ""; // The vmIp should be extracted by us
 
   private Handler mBroadcastHandler;
   private Runnable mBroadcastRunnable;
@@ -158,20 +162,13 @@ public class ExecutionServer extends Service {
       Log.i(TAG, "PrivateKey algorithm: " + privateKey.getAlgorithm());
       Log.i(TAG, "PublicKey algorithm: " + publicKey.getAlgorithm());
 
-    } catch (IOException e) {
-      Log.e(TAG, "Crypto not initialized: " + e);
-    } catch (KeyStoreException e) {
-      Log.e(TAG, "Crypto not initialized: " + e);
-    } catch (NoSuchAlgorithmException e) {
-      Log.e(TAG, "Crypto not initialized: " + e);
-    } catch (CertificateException e) {
-      Log.e(TAG, "Crypto not initialized: " + e);
-    } catch (UnrecoverableKeyException e) {
+    } catch (IOException | KeyStoreException | NoSuchAlgorithmException | CertificateException
+        | UnrecoverableKeyException e) {
       Log.e(TAG, "Crypto not initialized: " + e);
     }
 
     // Connect to the manager to register and get the configuration details
-    Thread t = new Thread(new ConnectToManager());
+    Thread t = new Thread(new RegistrationManager());
     t.start();
 
     // Start the D2D handler that broadcasts ping messages with a certain frequency
@@ -180,10 +177,9 @@ public class ExecutionServer extends Service {
     return START_STICKY;
   }
 
-
   /**
-   * Create a sentinel file on the clone in order to let the method know it is being executed on the
-   * clone.
+   * Creates a sentinel file on the clone in order to let the method know it is being executed on
+   * the clone.
    */
   private void createOffloadedFile() {
     try {
@@ -211,24 +207,45 @@ public class ExecutionServer extends Service {
    * @throws IOException
    * @throws UnknownHostException
    */
-  private class ConnectToManager implements Runnable {
+  private class RegistrationManager implements Runnable {
 
     @Override
     public void run() {
 
       // Before proceeding wait until the network interface is up and correctly configured
+      waitForNetworkToBeUp();
+
+      InetAddress vmIpAddress = Utils.getIpAddress();
+      if (vmIpAddress != null) {
+        vmIp = vmIpAddress.getHostAddress();
+      }
+      Log.i(TAG, "My IP: " + vmIp);
+
+      if (registerWithVmmAndDs()) {
+        startClientListeners();
+      } else {
+        Log.e(TAG, "Could not register with the VMM and DS, not starting the listeners.");
+      }
+    }
+
+    private void waitForNetworkToBeUp() {
       boolean hostMachineReachable = false;
       do {
         try {
-          // The manager runs on the host machine, so checking if we can ping the ManagerIp in
+          // The VMM runs on the host machine, so checking if we can ping the vmmIP in
           // reality we are checking if we can ping the host machine.
           // We should definitely be able to do that, otherwise this clone is useless if not
           // connected to the network.
-          InetAddress hostMachineAddress = InetAddress.getByName(config.getManagerIp());
+
+          InetAddress hostMachineAddress = InetAddress.getByName(config.getVmmIp());
           try {
             Log.i(TAG,
                 "Trying to ping the host machine " + hostMachineAddress.getHostAddress() + "...");
             hostMachineReachable = hostMachineAddress.isReachable(5000);
+            try {
+              Thread.sleep(1 * 1000);
+            } catch (InterruptedException e) {
+            }
           } catch (IOException e) {
             Log.w(TAG, "Error while trying to ping the host machine: " + e);
           }
@@ -237,87 +254,213 @@ public class ExecutionServer extends Service {
         }
       } while (!hostMachineReachable);
       Log.i(TAG, "Host machine replied to ping. Network interface is up and running.");
+    }
 
-      Socket dirManagerSocket = new Socket();
-      ObjectOutputStream oos = null;
-      ObjectInputStream ois = null;
+    private boolean registerWithVmmAndDs() {
+
+      Socket vmmSocket = null;
+      ObjectOutputStream vmmOut = null;
+      ObjectInputStream vmmIn = null;
 
       try {
-        Log.d(TAG,
-            "Connecting to Manager: " + config.getManagerIp() + ":" + config.getManagerPort());
+        Log.d(TAG, "Connecting to VMM: " + config.getVmmIp() + ":" + config.getVmmPort());
 
-        dirManagerSocket.connect(
-            new InetSocketAddress(config.getManagerIp(), config.getManagerPort()), 3 * 1000);
+        vmmSocket = new Socket();
+        vmmSocket.connect(new InetSocketAddress(config.getVmmIp(), config.getVmmPort()), 10 * 1000);
+        vmmOut = new ObjectOutputStream(vmmSocket.getOutputStream());
+        vmmIn = new ObjectInputStream(vmmSocket.getInputStream());
 
-        OutputStream os = dirManagerSocket.getOutputStream();
-        InputStream is = dirManagerSocket.getInputStream();
+        Log.d(TAG, "Sending myIp: " + vmIp);
+        vmmOut.writeByte(RapidMessages.AS_RM_REGISTER_VMM);
+        vmmOut.writeUTF(vmIp);
+        vmmOut.flush();
 
-        os.write(eu.project.rapid.common.RapidMessages.CLONE_CONNECTION);
+        // Receive message format: status (java byte), userId (java long)
+        byte status = vmmIn.readByte();
+        Log.i(TAG, "VMM return Status: " + (status == RapidMessages.OK ? "OK" : "ERROR"));
+        if (status == RapidMessages.OK) {
+          userId = vmmIn.readLong();
+          Log.i(TAG, "userId is: " + userId);
 
-        oos = new ObjectOutputStream(os);
-        ois = new ObjectInputStream(is);
-
-        // Send the name, id, and the public key to the Manager
-        os.write(RapidMessages.CLONE_AUTHENTICATION);
-        oos.writeObject(config.getCloneName());
-        oos.writeInt(config.getCloneId());
-        oos.writeBoolean(config.isCryptoInitialized());
-        if (config.isCryptoInitialized()) {
-          oos.writeObject(config.getPublicKey());
+          if (registerWithDs()) {
+            // Notify the VMM that the registration with the DS was correct
+            Log.i(TAG, "Correctly registered with the DS");
+            vmmOut.writeByte(RapidMessages.OK);
+            return true;
+          } else {
+            // Notify the VMM that the registration with the DS was correct
+            Log.i(TAG, "Registration with the DS failed");
+            vmmOut.writeByte(RapidMessages.ERROR);
+            return false;
+          }
         }
-        oos.flush();
-
-        // Get the port where the clone should listen for connections
-        config.setClonePort(ois.readInt());
-
-        // Get the port where the clone should listen for connections
-        config.setSslClonePort(ois.readInt());
-
-        config.setAnimationServerIp(ois.readUTF());
-        config.setAnimationServerPort(ois.readInt());
-
-        okTalkingToManager = true;
-
-      } catch (UnknownHostException e) {
-        Log.e(TAG, "Could not talk to manager: " + e);
       } catch (IOException e) {
-        Log.e(TAG, "Could not talk to manager: " + e);
-      } catch (Exception e) {
-        Log.e(TAG, "Could not talk to manager: " + e);
+        Log.e(TAG, "Could not connect with the VMM: " + e);
       } finally {
-        Log.d(TAG, "Done talking to Manager");
-        // Close the connection with the Manager
-        RapidUtils.closeQuietly(ois);
-        RapidUtils.closeQuietly(oos);
-        RapidUtils.closeQuietly(dirManagerSocket);
-
-        managerThreadFinished = true;
-        startClientHandler();
+        Log.d(TAG, "Done talking with the VMM");
+        // Close the connection with the VMM
+        RapidUtils.closeQuietly(vmmOut);
+        RapidUtils.closeQuietly(vmmIn);
+        RapidUtils.closeQuietly(vmmSocket);
       }
+      return false;
+    }
+
+    private boolean registerWithDs() {
+      Log.i(TAG, "Registering with the DS...");
+
+      Socket dsSocket = null;
+      ObjectOutputStream dsOut = null;
+      ObjectInputStream dsIn = null;
+
+      try {
+        dsSocket = new Socket(config.getDSIp(), config.getDSPort());
+        dsOut = new ObjectOutputStream(dsSocket.getOutputStream());
+        // dsOut.flush();
+        dsIn = new ObjectInputStream(dsSocket.getInputStream());
+
+        // Send message format: command (java byte), userId (java long)
+        dsOut.writeByte(RapidMessages.AS_RM_REGISTER_DS);
+        dsOut.writeLong(userId); // userId
+        dsOut.flush();
+
+        // Receive message format: status (java byte), vmId (java long)
+        byte status = dsIn.readByte();
+        System.out.println("Return Status: " + (status == RapidMessages.OK ? "OK" : "ERROR"));
+        if (status == RapidMessages.OK) {
+          vmId = dsIn.readLong();
+          Log.i(TAG, "Received vmId: " + vmId);
+          return true;
+        }
+
+        // Maybe we can add this functionality, the DS to send information about other components.
+        // config.setAnimationServerIp(dsIn.readUTF());
+        // config.setAnimationServerPort(dsIn.readInt());
+
+      } catch (IOException e) {
+        Log.e(TAG, "Registering with the DS failed: " + e);
+      } finally {
+        RapidUtils.closeQuietly(dsOut);
+        RapidUtils.closeQuietly(dsIn);
+        RapidUtils.closeQuietly(dsSocket);
+      }
+
+      return false;
     }
   }
 
-  private void startClientHandler() {
-
-    if (!okTalkingToManager) {
-      Log.w(TAG, "Could not talk to the manager. Starting with default values.");
-
-      config.setClonePort(Configuration.DEFAULT_CLONE_PORT);
-      config.setSslClonePort(Configuration.DEFAULT_SSL_CLONE_PORT);
-    }
+  private void startClientListeners() {
 
     Log.d(TAG, "Starting NetworkProfilerServer on port " + config.getClonePortBandwidthTest());
     new Thread(new NetworkProfilerServer(config)).start();
 
-    Log.d(TAG, "Starting CloneThread on port " + config.getClonePort());
-    new Thread(new CloneThread(context, config)).start();
+    Log.d(TAG, "Starting ClientListenerClear on port " + config.getClonePort());
+    new Thread(new ClientListenerClear(context, config)).start();
 
     if (config.isCryptoInitialized()) {
-      Log.d(TAG, "Starting CloneSslThread on port " + config.getSslClonePort());
-      new Thread(new CloneSslThread(context, config)).start();
+      Log.d(TAG, "Starting ClientListenerSSL on port " + config.getSslClonePort());
+      new Thread(new ClientListenerSSL(context, config)).start();
     } else {
       Log.w(TAG,
           "Cannot start the CloneSSLThread since the cryptographic initialization was not succesful");
+    }
+  }
+
+
+  /**
+   * The thread that listens for new clients (phones or other clones) to connect in clear.
+   *
+   */
+  private class ClientListenerClear implements Runnable {
+
+    private static final String TAG = "ClientListenerClear";
+
+    private Context context;
+    private Configuration config;
+
+    public ClientListenerClear(Context context, eu.project.rapid.common.Configuration config) {
+      this.context = context;
+      this.config = config;
+    }
+
+    @Override
+    public void run() {
+
+      ServerSocket serverSocket = null;
+      try {
+        serverSocket = new ServerSocket(config.getClonePort());
+        Log.i(TAG, "ClientListenerClear started on port " + config.getClonePort());
+        while (true) {
+          Socket clientSocket = serverSocket.accept();
+          Log.i(TAG, "New client connected in clear");
+          new AppHandler(clientSocket, context, config);
+        }
+      } catch (IOException e) {
+        Log.e(TAG, "IOException: " + e.getMessage());
+        e.printStackTrace();
+      } finally {
+        if (serverSocket != null) {
+          try {
+            serverSocket.close();
+          } catch (IOException e) {
+            Log.e(TAG, "Error while closing server socket: " + e);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * The thread that listens for new clients (phones or other clones) to connect using SSL.
+   */
+  public class ClientListenerSSL implements Runnable {
+
+    private static final String TAG = "ClientListenerSSL";
+
+    private Context context;
+    private eu.project.rapid.common.Configuration config;
+
+    public ClientListenerSSL(Context context, Configuration config) {
+      this.context = context;
+      this.config = config;
+    }
+
+    @Override
+    public void run() {
+
+      Log.i(TAG, "ClientListenerSSL started");
+
+      try {
+        SSLContext sslContext = SSLContext.getInstance("SSL");
+        sslContext.init(config.getKmf().getKeyManagers(), null, null);
+
+        SSLServerSocketFactory factory =
+            (SSLServerSocketFactory) sslContext.getServerSocketFactory();
+        Log.i(TAG, "factory created");
+
+        SSLServerSocket serverSocket =
+            (SSLServerSocket) factory.createServerSocket(config.getSslClonePort());
+        Log.i(TAG, "server socket created");
+
+        // If we want also the client to authenticate himself
+        // serverSocket.setNeedClientAuth(true); // default is false
+
+        while (true) {
+          // Log.i(TAG, "Saved session IDs: ");
+          // Enumeration<byte[]> sessionIDs = sslContext.getServerSessionContext().getIds();
+          // while(sessionIDs.hasMoreElements()) {
+          // Log.i(TAG, "ID: " + RapidUtils.bytesToHex(sessionIDs.nextElement()));
+          // }
+          // Log.i(TAG, "");
+          //
+          Socket clientSocket = serverSocket.accept();
+          Log.i(TAG, "New client connected using SSL");
+          new AppHandler(clientSocket, context, config);
+        }
+
+      } catch (IOException | NoSuchAlgorithmException | KeyManagementException e1) {
+        e1.printStackTrace();
+      }
     }
   }
 
@@ -330,12 +473,12 @@ public class ExecutionServer extends Service {
       mBroadcastHandler = new Handler();
     }
     if (mBroadcastRunnable == null) {
-      mBroadcastRunnable = new BroadcastRunnable();
+      mBroadcastRunnable = new D2DBroadcastThread();
     }
     mBroadcastHandler.postDelayed(mBroadcastRunnable, Constants.D2D_BROADCAST_INTERVAL);
   }
 
-  private class BroadcastRunnable implements Runnable {
+  private class D2DBroadcastThread implements Runnable {
     public void run() {
       Log.i(TAG, "Running the broadcast message runnable");
       if (context == null) {
@@ -357,7 +500,8 @@ public class ExecutionServer extends Service {
             socket.setBroadcast(true);
 
             InetAddress myIpAddress = Utils.getIpAddress();
-            Log.i(TAG, "My IP address: " + myIpAddress);
+            Log.i(TAG, "My IP address: " + myIpAddress.getHostAddress());
+
             InetAddress broadcastAddress = Utils.getBroadcast(myIpAddress);
             Log.i(TAG, "Broadcast IP address: " + broadcastAddress);
             try {

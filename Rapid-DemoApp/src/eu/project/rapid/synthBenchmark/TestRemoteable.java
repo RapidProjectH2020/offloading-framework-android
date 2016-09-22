@@ -1,19 +1,17 @@
 /*******************************************************************************
  * Copyright (C) 2015, 2016 RAPID EU Project
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify it under the terms of the
+ * GNU Lesser General Public License as published by the Free Software Foundation; either version
+ * 2.1 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * You should have received a copy of the GNU Lesser General Public License along with this library;
+ * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *******************************************************************************/
 package eu.project.rapid.synthBenchmark;
 
@@ -42,17 +40,20 @@ public class TestRemoteable extends Remoteable {
       toExecute = this.getClass().getDeclaredMethod("localCpuLoader1", (Class[]) null);
       result = (String) dfe.execute(toExecute, this);
     } catch (SecurityException e) {
-      // Should never get here
       e.printStackTrace();
       throw e;
     } catch (NoSuchMethodException e) {
-      // Should never get here
       e.printStackTrace();
     } catch (Throwable e) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     }
     return result;
+  }
+
+  public String localCpuLoader1() {
+    for (int i = 0; i < 10000; i++) {
+    }
+    return "cpuLoader1 finished";
   }
 
   public String cpuLoader2() {
@@ -95,12 +96,6 @@ public class TestRemoteable extends Remoteable {
       e.printStackTrace();
     }
     return result;
-  }
-
-  public String localCpuLoader1() {
-    for (int i = 0; i < 10000; i++) {
-    }
-    return "cpuLoader1 finished";
   }
 
   public String localCpuLoader2() {

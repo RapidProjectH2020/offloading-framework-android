@@ -1,19 +1,17 @@
 /*******************************************************************************
  * Copyright (C) 2015, 2016 RAPID EU Project
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * This library is free software; you can redistribute it and/or modify it under the terms of the
+ * GNU Lesser General Public License as published by the Free Software Foundation; either version
+ * 2.1 of the License, or (at your option) any later version.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * You should have received a copy of the GNU Lesser General Public License along with this library;
+ * if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301 USA
  *******************************************************************************/
 package eu.project.rapid.queens;
 
@@ -33,8 +31,6 @@ public class NQueens extends Remoteable {
   private int nrClones;
   private transient DFE dfe;
 
-  private double localDataFraction = 0;
-
   /**
    * @param dfe The execution dfe taking care of the execution
    * @param nrClones In case of remote execution specify the number of clones needed
@@ -52,9 +48,8 @@ public class NQueens extends Remoteable {
   }
 
   @Override
-  public void prepareData(double localDataFraction) {
-    Log.i(TAG, "Preparing the data using localDataFraction: " + localDataFraction);
-    this.localDataFraction = localDataFraction;
+  public void prepareDataOnClient() {
+
   }
 
   /**
@@ -93,16 +88,15 @@ public class NQueens extends Remoteable {
     byte[][] board = new byte[N][N];
     int countSolutions = 0;
 
-    int lastColumnOnPhone = (int) (N * localDataFraction);
-    int start = 0, end = lastColumnOnPhone;
+    int start = 0, end = N;
 
     if (Utils.isOffloaded()) {
       // cloneId == 0 if this is the main clone
       // or [1, nrClones-1] otherwise
       int cloneId = Utils.readCloneHelperId();
-      int howManyCols = (int) ((N - lastColumnOnPhone) / nrClones); // Integer division, we may
-                                                                    // loose some columns.
-      start = lastColumnOnPhone + cloneId * howManyCols; // cloneId == 0 if this is the main clone
+      int howManyCols = (int) ((N) / nrClones); // Integer division, we may
+                                                // loose some columns.
+      start = cloneId * howManyCols; // cloneId == 0 if this is the main clone
       end = start + howManyCols;
 
       // If this is the clone with the highest id let him take care

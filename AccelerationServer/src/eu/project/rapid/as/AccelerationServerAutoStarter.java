@@ -25,15 +25,15 @@ import android.util.Log;
  * execution server when the system has finished booting
  * 
  */
-public class ExecutionServerAutoStarter extends BroadcastReceiver {
-  private static final String TAG = ExecutionServerAutoStarter.class.getName();
+public class AccelerationServerAutoStarter extends BroadcastReceiver {
+  private static final String TAG = AccelerationServerAutoStarter.class.getName();
 
   @Override
   public void onReceive(Context context, Intent intent) {
     Log.d(TAG, "onReceiveIntent: Start Execution Service");
 
     Intent serviceIntent = new Intent();
-    serviceIntent.setAction("eu.project.rapid.as.ExecutionServer");
+    serviceIntent.setAction("eu.project.rapid.as.AccelerationServer");
     context.startService(serviceIntent);
   }
 }

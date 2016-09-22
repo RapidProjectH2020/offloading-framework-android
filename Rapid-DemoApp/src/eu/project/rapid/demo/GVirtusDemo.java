@@ -486,4 +486,6 @@ public class GVirtusDemo {
     h_A = constantInit(h_A, 25, 1.0f);
     mem.cudaMemcpy(dfe.getGvirtusFrontend(), res, pointerA, h_A, h_A.length, 1);
   }
+
+
 }

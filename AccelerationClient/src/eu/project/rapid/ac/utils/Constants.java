@@ -49,6 +49,8 @@ public class Constants {
 
   public static final String RAPID_SETTINGS = "rapid_settings";
   public static final String MY_OLD_ID = "MY_OLD_ID";
+  public static final String PREV_VM_IP = "PREV_VM_IP";
+  public static final String PREV_SLAM_IP = "PREV_SLAM_IP";
   public static final String MY_OLD_ID_WITH_DS = "MY_OLD_ID_WITH_DS";
 
   public static final String MNT_SDCARD =
