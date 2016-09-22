@@ -286,11 +286,13 @@ public class AccelerationServer extends Service {
             // Notify the VMM that the registration with the DS was correct
             Log.i(TAG, "Correctly registered with the DS");
             vmmOut.writeByte(RapidMessages.OK);
+            vmmOut.flush();
             return true;
           } else {
             // Notify the VMM that the registration with the DS was correct
             Log.i(TAG, "Registration with the DS failed");
             vmmOut.writeByte(RapidMessages.ERROR);
+            vmmOut.flush();
             return false;
           }
         }
