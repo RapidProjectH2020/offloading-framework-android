@@ -56,7 +56,9 @@ import eu.project.rapid.ac.d2d.D2DMessage;
 import eu.project.rapid.ac.utils.Constants;
 import eu.project.rapid.ac.utils.Utils;
 import eu.project.rapid.common.Configuration;
+import eu.project.rapid.common.RapidConstants;
 import eu.project.rapid.common.RapidMessages;
+import eu.project.rapid.common.RapidMessages.AnimationMsg;
 import eu.project.rapid.common.RapidUtils;
 
 /**
@@ -185,12 +187,10 @@ public class AccelerationServer extends Service {
     try {
       File f = new File(Constants.RAPID_FOLDER);
       if (!f.exists()) {
-        f.mkdir();
+        f.mkdirs();
       }
       f = new File(Constants.FILE_OFFLOADED);
       f.createNewFile();
-    } catch (FileNotFoundException e) {
-      Log.e(TAG, "Could not create offloaded file: " + e);
     } catch (IOException e) {
       Log.e(TAG, "Could not create offloaded file: " + e);
     }
@@ -213,47 +213,74 @@ public class AccelerationServer extends Service {
     public void run() {
 
       // Before proceeding wait until the network interface is up and correctly configured
-      waitForNetworkToBeUp();
-
-      InetAddress vmIpAddress = Utils.getIpAddress();
-      if (vmIpAddress != null) {
-        vmIp = vmIpAddress.getHostAddress();
-      }
+      vmIp = waitForNetworkToBeUp();
       Log.i(TAG, "My IP: " + vmIp);
 
-      if (registerWithVmmAndDs()) {
-        startClientListeners();
+      if (vmIp.startsWith("10.0")) {
+        Log.i(TAG, "Running on VM on the cloud under VPN, trying to connect to VMM and DS...");
+        if (registerWithVmmAndDs()) {
+          startClientListeners();
+        } else {
+          Log.e(TAG, "Could not register with the VMM and DS, not starting the listeners.");
+        }
       } else {
-        Log.e(TAG, "Could not register with the VMM and DS, not starting the listeners.");
+        Log.i(TAG, "Running on a phone for D2D offloading, starting the listeners");
+        startClientListeners();
+
+        // Check if the primary animation server is reachable
+        boolean primaryAnimationServerReachable = RapidUtils.isPrimaryAnimationServerRunning(
+            config.getAnimationServerIp(), config.getAnimationServerPort());
+        Log.i(TAG, "Primary animation server reachable: " + primaryAnimationServerReachable);
+        if (!primaryAnimationServerReachable) {
+          config.setAnimationServerIp(RapidConstants.DEFAULT_SECONDARY_ANIMATION_SERVER_IP);
+          config.setAnimationServerPort(RapidConstants.DEFAULT_SECONDARY_ANIMATION_SERVER_PORT);
+        }
       }
     }
 
-    private void waitForNetworkToBeUp() {
-      boolean hostMachineReachable = false;
-      do {
-        try {
-          // The VMM runs on the host machine, so checking if we can ping the vmmIP in
-          // reality we are checking if we can ping the host machine.
-          // We should definitely be able to do that, otherwise this clone is useless if not
-          // connected to the network.
+    private String waitForNetworkToBeUp() {
 
-          InetAddress hostMachineAddress = InetAddress.getByName(config.getVmmIp());
-          try {
-            Log.i(TAG,
-                "Trying to ping the host machine " + hostMachineAddress.getHostAddress() + "...");
-            hostMachineReachable = hostMachineAddress.isReachable(5000);
-            try {
-              Thread.sleep(1 * 1000);
-            } catch (InterruptedException e) {
-            }
-          } catch (IOException e) {
-            Log.w(TAG, "Error while trying to ping the host machine: " + e);
-          }
-        } catch (UnknownHostException e1) {
-          Log.e(TAG, "Error while getting hostname: " + e1);
+      InetAddress vmIpAddress = null;
+      do {
+        vmIpAddress = Utils.getIpAddress();
+        try {
+          Thread.sleep(5 * 1000);
+        } catch (InterruptedException e) {
         }
-      } while (!hostMachineReachable);
-      Log.i(TAG, "Host machine replied to ping. Network interface is up and running.");
+      } while (vmIpAddress == null || !RapidUtils.validateIpAddress(vmIpAddress.getHostAddress()));
+      Log.i(TAG, "I have an IP: " + vmIpAddress.getHostAddress());
+
+      // FIXME: remove the hard-coded 10.0.*
+      if (vmIpAddress.getHostAddress().startsWith("10.0")) {
+        // This is a VM running on the cloud
+        boolean hostMachineReachable = false;
+        do {
+          try {
+            // The VMM runs on the host machine, so checking if we can ping the vmmIP in
+            // reality we are checking if we can ping the host machine.
+            // We should definitely be able to do that, otherwise this clone is useless if not
+            // connected to the network.
+
+            InetAddress hostMachineAddress = InetAddress.getByName(config.getVmmIp());
+            try {
+              Log.i(TAG,
+                  "Trying to ping the host machine " + hostMachineAddress.getHostAddress() + "...");
+              hostMachineReachable = hostMachineAddress.isReachable(5000);
+              try {
+                Thread.sleep(1 * 1000);
+              } catch (InterruptedException e) {
+              }
+            } catch (IOException e) {
+              Log.w(TAG, "Error while trying to ping the host machine: " + e);
+            }
+          } catch (UnknownHostException e1) {
+            Log.e(TAG, "Error while getting hostname: " + e1);
+          }
+        } while (!hostMachineReachable);
+        Log.i(TAG, "Host machine replied to ping. Network interface is up and running.");
+      }
+
+      return vmIpAddress.getHostAddress();
     }
 
     private boolean registerWithVmmAndDs() {
@@ -502,28 +529,25 @@ public class AccelerationServer extends Service {
             socket.setBroadcast(true);
 
             InetAddress myIpAddress = Utils.getIpAddress();
-            Log.i(TAG, "My IP address: " + myIpAddress.getHostAddress());
+            if (myIpAddress != null) {
+              Log.i(TAG, "My IP address: " + myIpAddress.getHostAddress());
 
-            InetAddress broadcastAddress = Utils.getBroadcast(myIpAddress);
-            Log.i(TAG, "Broadcast IP address: " + broadcastAddress);
-            try {
-              packet = new DatagramPacket(data, data.length, broadcastAddress,
-                  Constants.D2D_BROADCAST_PORT);
-              socket.send(packet);
-              Log.i(TAG, "==>> Broadcast message sent to " + broadcastAddress);
-              Log.i(TAG, "==>> CMD: " + msg);
-            } catch (UnknownHostException e) {
-              Log.i(TAG, "UnknownHostException while sending data: " + e);
-              e.printStackTrace();
-            } catch (IOException e) {
-              Log.i(TAG, "IOException while sending data: " + e);
-              e.printStackTrace();
-            } catch (NullPointerException e) {
-              Log.i(TAG, "NullPointerException while sending data: " + e);
-              e.printStackTrace();
+              InetAddress broadcastAddress = Utils.getBroadcast(myIpAddress);
+              Log.i(TAG, "Broadcast IP address: " + broadcastAddress);
+              try {
+                packet = new DatagramPacket(data, data.length, broadcastAddress,
+                    Constants.D2D_BROADCAST_PORT);
+                socket.send(packet);
+                Log.i(TAG, "==>> Broadcast message sent to " + broadcastAddress);
+                Log.i(TAG, "==>> CMD: " + msg);
+                RapidUtils.sendAnimationMsg(config, AnimationMsg.AS_BROADCASTING_D2D);
+
+              } catch (NullPointerException | IOException e) {
+                Log.e(TAG, "Exception while sending data: " + e);
+              }
             }
-          } catch (IOException e) {
-            e.printStackTrace();
+          } catch (Exception e) {
+            Log.e(TAG, "Exception while sending data: " + e);
           } finally {
             if (socket != null) {
               socket.close();

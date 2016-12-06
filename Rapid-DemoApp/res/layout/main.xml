@@ -264,7 +264,7 @@
 		android:layout_height="wrap_content" android:gravity="center_vertical"
 		android:text="Single Methods" />
         -->
-
+<!--
         <Button
             android:id="@+id/jni1"
             android:layout_width="fill_parent"
@@ -285,6 +285,8 @@
             android:layout_height="wrap_content"
             android:onClick="onClickVirusScanning"
             android:text="@string/virusScanning" />
+            
+            -->
 
         <TextView
             android:id="@+id/textVmConnectionStatus"
@@ -296,6 +298,7 @@
             android:textColor="@android:color/holo_red_dark"
             android:textSize="18sp" />
 
+        <!-- 
         <View style="@style/Divider" />
 
         <TextView
@@ -306,6 +309,7 @@
             android:paddingTop="2dp"
             android:text="@string/textTestImplementation"
             android:textColor="@android:color/holo_blue_dark" />
+
         
          <Button
             android:id="@+id/dseTestButton"
@@ -314,7 +318,6 @@
             android:onClick="onClickDseTesting"
             android:text="@string/dseTestButtonText" />
 
-        <!--
         <TextView
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"

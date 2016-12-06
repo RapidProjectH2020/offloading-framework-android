@@ -389,7 +389,7 @@ public class AppHandler {
       Object result;
       Long execDuration = null;
       try {
-        RapidUtils.sendAnimationMsg(config, RapidMessages.AC_EXEC_REMOTE);
+        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_EXEC_REMOTE);
         Long startExecTime = System.nanoTime();
         try {
           // long s = System.nanoTime();
@@ -422,7 +422,7 @@ public class AppHandler {
           Method libLoader = objClass.getMethod("loadLibraries", LinkedList.class);
           try {
             libLoader.invoke(objToExecute, libraries);
-            RapidUtils.sendAnimationMsg(config, RapidMessages.AC_EXEC_REMOTE);
+            // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_EXEC_REMOTE);
             Long startExecTime = System.nanoTime();
             result = runMethod.invoke(objToExecute, pValues);
             execDuration = System.nanoTime() - startExecTime;
@@ -567,7 +567,7 @@ public class AppHandler {
               try {
                 // Send back over the socket connection
 
-                RapidUtils.sendAnimationMsg(config, RapidMessages.AC_RESULT_REMOTE);
+                // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_RESULT_REMOTE);
                 mObjOs.writeObject(result);
                 // Clear ObjectOutputCache - Java caching unsuitable in this case
                 mObjOs.flush();

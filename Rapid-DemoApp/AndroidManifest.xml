@@ -15,7 +15,7 @@
     You should have received a copy of the GNU Lesser General Public
     License along with this library; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- -->
+-->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="eu.project.rapid.demo"
@@ -36,6 +36,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <application
         android:icon="@drawable/icon_dark"
@@ -49,12 +50,14 @@
             android:label="@string/app_name" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        
+
         <!-- This service is implemented in the library but should be declared here otherwise it can't be started. -->
-        <service android:name="eu.project.rapid.ac.d2d.D2DClientService"></service>
+        <service android:name="eu.project.rapid.ac.d2d.D2DClientService" >
+        </service>
     </application>
 
 </manifest>
