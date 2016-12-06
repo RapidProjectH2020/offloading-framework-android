@@ -32,6 +32,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
 import java.io.StreamCorruptedException;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
@@ -46,8 +47,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
-
-import org.apache.http.conn.util.InetAddressUtils;
 
 import android.content.Context;
 import android.telephony.TelephonyManager;
@@ -334,12 +333,14 @@ public class Utils {
           // Sokol: FIXME remove the hard coded "wlan" check
           // Log.i(TAG, "IP: " + addr);
           if (intf.getDisplayName().contains("wlan") && !addr.isLoopbackAddress()
-              && InetAddressUtils.isIPv4Address(addr.getHostAddress())) {
+          // && InetAddressUtils.isIPv4Address(addr.getHostAddress())) {
+              && addr instanceof Inet4Address) {
             return addr;
           }
           // On emulator
           if (intf.getDisplayName().contains("eth0") && !addr.isLoopbackAddress()
-              && InetAddressUtils.isIPv4Address(addr.getHostAddress())) {
+          // && InetAddressUtils.isIPv4Address(addr.getHostAddress())) {
+              && addr instanceof Inet4Address) {
             return addr;
           }
         }
