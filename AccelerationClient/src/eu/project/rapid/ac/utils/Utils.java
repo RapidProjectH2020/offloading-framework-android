@@ -328,7 +328,7 @@ public class Utils {
     try {
       List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
       for (NetworkInterface intf : interfaces) {
-        Log.i(TAG, "Interface: " + intf);
+        // Log.i(TAG, "Interface: " + intf);
         List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
         for (InetAddress addr : addrs) {
           // Sokol: FIXME remove the hard coded "wlan" check

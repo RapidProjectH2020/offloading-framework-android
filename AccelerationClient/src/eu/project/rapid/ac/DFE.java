@@ -40,10 +40,7 @@ import java.security.PublicKey;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
@@ -89,6 +86,7 @@ import eu.project.rapid.common.Clone;
 import eu.project.rapid.common.Configuration;
 import eu.project.rapid.common.RapidConstants;
 import eu.project.rapid.common.RapidMessages;
+import eu.project.rapid.common.RapidMessages.AnimationMsg;
 import eu.project.rapid.common.RapidUtils;
 import eu.project.rapid.gvirtusfe.Frontend;
 
@@ -287,19 +285,8 @@ public class DFE {
       config.setSslFactory(sslFactory);
       config.setSslContext(sslContext);
 
-    } catch (KeyStoreException e) {
-      Log.e(TAG, "Could not initialize the crypto parameters - " + e);
-    } catch (NoSuchAlgorithmException e) {
-      Log.e(TAG, "Could not initialize the crypto parameters - " + e);
-    } catch (CertificateException e) {
-      Log.e(TAG, "Could not initialize the crypto parameters - " + e);
-    } catch (FileNotFoundException e) {
-      Log.e(TAG, "Could not initialize the crypto parameters - " + e);
-    } catch (IOException e) {
-      Log.e(TAG, "Could not initialize the crypto parameters - " + e);
-    } catch (KeyManagementException e) {
-      Log.e(TAG, "Could not initialize the crypto parameters - " + e);
-    } catch (UnrecoverableKeyException e) {
+    } catch (KeyStoreException | NoSuchAlgorithmException | KeyManagementException
+        | UnrecoverableKeyException | CertificateException | IOException e) {
       Log.e(TAG, "Could not initialize the crypto parameters - " + e);
     }
   }
@@ -310,6 +297,20 @@ public class DFE {
 
     @Override
     protected Void doInBackground(Clone... clone) {
+
+      // Check if the primary animation server is reachable
+      boolean primaryAnimationServerReachable = RapidUtils.isPrimaryAnimationServerRunning(
+          config.getAnimationServerIp(), config.getAnimationServerPort());
+      Log.i(TAG, "Primary animation server reachable: " + primaryAnimationServerReachable);
+      if (!primaryAnimationServerReachable) {
+        config.setAnimationServerIp(RapidConstants.DEFAULT_SECONDARY_ANIMATION_SERVER_IP);
+        config.setAnimationServerPort(RapidConstants.DEFAULT_SECONDARY_ANIMATION_SERVER_PORT);
+      }
+
+      // Anyway, show the default image, where the AC tries to connects to DS, SLAM, etc. If this
+      // fails, then we will show the D2D initial image
+      RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_INITIAL_IMG);
+
       if (clone[0] == null) {
         publishProgress("Registering with the DS and the SLAM...");
         registerWithDsAndSlam();
@@ -320,8 +321,8 @@ public class DFE {
 
       config.setClone(sClone);
 
-      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VM);
-
+      RapidUtils.sendAnimationMsg(config, CONNECT_TO_PREVIOUS_VM ? AnimationMsg.AC_PREV_REGISTER_VM
+          : AnimationMsg.AC_NEW_REGISTER_VM);
       if (commType == DFE.COMM_CLEAR) {
         publishProgress("Clear connection with the clone: " + sClone);
         establishConnection();
@@ -336,6 +337,9 @@ public class DFE {
 
       // If the connection was successful then try to send the app to the clone
       if (onLine) {
+        RapidUtils.sendAnimationMsg(config,
+            CONNECT_TO_PREVIOUS_VM ? AnimationMsg.AC_PREV_CONN_VM : AnimationMsg.AC_NEW_CONN_VM);
+
         Log.i(TAG, "The communication type established with the clone is: " + commType);
 
         if (config.getGvirtusIp() == null) {
@@ -346,32 +350,39 @@ public class DFE {
         }
 
         publishProgress("Registering application with the RAPID system...");
-        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_SEND_APK);
+        RapidUtils.sendAnimationMsg(config,
+            CONNECT_TO_PREVIOUS_VM ? AnimationMsg.AC_PREV_APK_VM : AnimationMsg.AC_NEW_APK_VM);
         sendApk();
 
         // Find rtt to the server
         // Measure the data rate when just connected
         publishProgress("Sending/receiving data for 3 seconds to measure the ulRate and dlRate...");
-        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_RTT_MEASUREMENT);
+        RapidUtils.sendAnimationMsg(config,
+            CONNECT_TO_PREVIOUS_VM ? AnimationMsg.AC_PREV_RTT_VM : AnimationMsg.AC_NEW_RTT_VM);
         NetworkProfiler.rttPing(mInStream, mOutStream);
-        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DL_MEASUREMENT);
+        RapidUtils.sendAnimationMsg(config, CONNECT_TO_PREVIOUS_VM ? AnimationMsg.AC_PREV_DL_RATE_VM
+            : AnimationMsg.AC_NEW_DL_RATE_VM);
         NetworkProfiler.measureDlRate(sClone.getIp(), config.getClonePortBandwidthTest());
-        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_UL_MEASUREMENT);
+        RapidUtils.sendAnimationMsg(config, CONNECT_TO_PREVIOUS_VM ? AnimationMsg.AC_PREV_UL_RATE_VM
+            : AnimationMsg.AC_NEW_UL_RATE_VM);
         NetworkProfiler.measureUlRate(sClone.getIp(), config.getClonePortBandwidthTest());
-        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VM_OK);
+        RapidUtils.sendAnimationMsg(config, CONNECT_TO_PREVIOUS_VM
+            ? AnimationMsg.AC_PREV_REGISTRATION_OK_VM : AnimationMsg.AC_NEW_REGISTRATION_OK_VM);
 
         try {
           ((DfeCallback) mContext).vmConnectionStatusUpdate();
         } catch (ClassCastException e) {
           Log.i(TAG, "This class doesn't implement callback methods.");
         }
+      } else {
+        RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_REGISTER_VM_ERROR);
       }
 
-      if (config.getGvirtusIp() != null) {
-        // Create a gvirtus frontend object that is responsible for executing the CUDA code.
-        publishProgress("Connecting with GVirtuS backend...");
-        gVirtusFrontend = new Frontend(config.getGvirtusIp(), config.getGvirtusPort());
-      }
+      // if (config.getGvirtusIp() != null) {
+      // // Create a gvirtus frontend object that is responsible for executing the CUDA code.
+      // publishProgress("Connecting with GVirtuS backend...");
+      // gVirtusFrontend = new Frontend(config.getGvirtusIp(), config.getGvirtusPort());
+      // }
 
       return null;
     }
@@ -436,6 +447,8 @@ public class DFE {
     private boolean registerWithDs() {
 
       Log.d(TAG, "Starting as phone with ID: " + myId);
+      RapidUtils.sendAnimationMsg(config,
+          CONNECT_TO_PREVIOUS_VM ? AnimationMsg.AC_PREV_VM_DS : AnimationMsg.AC_NEW_REGISTER_DS);
 
       Socket dsSocket = null;
       ObjectOutputStream dsOut = null;
@@ -450,48 +463,32 @@ public class DFE {
 
         // Send the name and id to the DS
         if (CONNECT_TO_PREVIOUS_VM) {
+          // RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_PREV_VM_DS);
           Log.i(TAG, "AC_REGISTER_PREV_DS");
-
           // Send message format: command (java byte), userId (java long), qosFlag (java int)
           dsOut.writeByte(RapidMessages.AC_REGISTER_PREV_DS);
-          dsOut.writeLong(myId); // userId
-          dsOut.writeInt(RapidConstants.OS.ANDROID.ordinal());
-          dsOut.writeInt(RapidConstants.REGISTER_WITHOUT_QOS_PARAMS); // if there is QoS parameter,
-                                                                      // 1 else 0
-          dsOut.flush();
-
-          // Receive message format: status (java byte), userId (java long), VM ipAddress (java UTF)
-          byte status = dsIn.readByte();
-          Log.i(TAG, "Return Status: " + (status == RapidMessages.OK ? "OK" : "ERROR"));
-          if (status == RapidMessages.OK) {
-            myId = dsIn.readLong();
-            Log.i(TAG, "userId is: " + myId);
-            slamIp = dsIn.readUTF();
-            Log.i(TAG, "SLAM IP address is: " + slamIp);
-            config.setSlamIp(slamIp);
-            return true;
-          }
         } else { // Connect to a new VM
+          // RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_NEW_REGISTER_DS);
           Log.i(TAG, "AC_REGISTER_NEW_DS");
           dsOut.writeByte(RapidMessages.AC_REGISTER_NEW_DS);
-          dsOut.writeLong(myId); // send my user ID so that my previous VM can be released
-          dsOut.writeInt(RapidConstants.OS.ANDROID.ordinal());
-          dsOut.writeInt(RapidConstants.REGISTER_WITHOUT_QOS_PARAMS); // if there is QoS parameter,
-                                                                      // 1 else 0 */
-          dsOut.flush();
+        }
 
-          // Receive message format: status (java byte), userId (java long), ipList (java object)
-          byte status = dsIn.readByte();
-          Log.i(TAG, "Return Status: " + (status == RapidMessages.OK ? "OK" : "ERROR"));
-          if (status == RapidMessages.OK) {
-            myId = dsIn.readLong();
-            Log.i(TAG, "New userId is: " + myId);
+        dsOut.writeLong(myId); // send my user ID so that my previous VM can be released
+        dsOut.writeInt(RapidConstants.OS.ANDROID.ordinal());
+        dsOut.writeInt(RapidConstants.REGISTER_WITHOUT_QOS_PARAMS); // if there is QoS parameter,
+                                                                    // 1 else 0
+        dsOut.flush();
 
-            // Receiving a list with SLAM IPs
-            ArrayList<String> ipList = (ArrayList<String>) dsIn.readObject();
-            chooseBestSlam(ipList);
-            return true;
-          }
+        // Receive message format: status (java byte), userId (java long), VM ipAddress (java UTF)
+        byte status = dsIn.readByte();
+        Log.i(TAG, "Return Status: " + (status == RapidMessages.OK ? "OK" : "ERROR"));
+        if (status == RapidMessages.OK) {
+          myId = dsIn.readLong();
+          Log.i(TAG, "userId is: " + myId);
+          slamIp = dsIn.readUTF();
+          Log.i(TAG, "SLAM IP address is: " + slamIp);
+          config.setSlamIp(slamIp);
+          return true;
         }
       } catch (Exception e) {
         Log.e(TAG, "Error while connecting with the DS: " + e);
@@ -504,26 +501,8 @@ public class DFE {
       return false;
     }
 
-    private void chooseBestSlam(List<String> slamIPs) {
-      // FIXME Currently just choose the first one.
-      Log.i(TAG, "Choosing best SLAM...");
-      if (slamIPs == null || slamIPs.size() == 0) {
-        throw new NoSuchElementException("Exptected at least one SLAM, don't know how to proceed!");
-      } else {
-        Iterator<String> ipListIterator = slamIPs.iterator();
-        Log.i(TAG, "Received SLAM IP List: ");
-        while (ipListIterator.hasNext()) {
-          Log.i(TAG, ipListIterator.next());
-        }
-
-        slamIp = slamIPs.get(0);
-        config.setSlamIp(slamIp);
-      }
-    }
-
     /**
      * Read the config file to get the IP and port of Manager.<br>
-     * FIXME This is to be implemented together with Omer.
      * 
      * @throws IOException
      * @throws UnknownHostException
@@ -544,11 +523,8 @@ public class DFE {
         oos = new ObjectOutputStream(slamSocket.getOutputStream());
         ois = new ObjectInputStream(slamSocket.getInputStream());
 
-        if (CONNECT_TO_PREVIOUS_VM) {
-          // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VMM_PREV);
-        } else {
-          // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REGISTER_VMM_NEW);
-        }
+        RapidUtils.sendAnimationMsg(config, CONNECT_TO_PREVIOUS_VM
+            ? AnimationMsg.AC_PREV_REGISTER_SLAM : AnimationMsg.AC_NEW_REGISTER_SLAM);
 
         // Send the id to the SLAM
         oos.writeByte(RapidMessages.AC_REGISTER_SLAM);
@@ -590,6 +566,8 @@ public class DFE {
     netProfiler.onDestroy();
     DBCache.saveDbCache();
     closeConnection();
+    // FIXME Should I also stop the D2D listening service here or should I leave it running?
+    RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_INITIAL_IMG);
   }
 
   private void startD2DThread() {
@@ -613,13 +591,18 @@ public class DFE {
       try {
         Log.i(TAG, "Reading the saved D2D phones...");
         d2dSetPhones = (Set<PhoneSpecs>) Utils.readObjectFromFile(Constants.FILE_D2D_PHONES);
+
+        if (d2dSetPhones != null && d2dSetPhones.size() > 0) {
+          RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_RECEIVED_D2D);
+        } else {
+          RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_NO_MORE_D2D);
+        }
+
         Log.i(TAG, "List of D2D phones:");
         for (PhoneSpecs p : d2dSetPhones) {
           Log.i(TAG, p.toString());
         }
-      } catch (IOException e) {
-        Log.e(TAG, "Error on D2DSetReader while trying to read the saved set of D2D phones: " + e);
-      } catch (ClassNotFoundException e) {
+      } catch (IOException | ClassNotFoundException e) {
         Log.e(TAG, "Error on D2DSetReader while trying to read the saved set of D2D phones: " + e);
       }
     }
@@ -633,8 +616,6 @@ public class DFE {
       long sTime = System.nanoTime();
       long startTxBytes = NetworkProfiler.getProcessTxBytes();
       long startRxBytes = NetworkProfiler.getProcessRxBytes();
-
-      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_CONNECT_VM);
 
       Log.i(TAG, "Connecting with AS on: " + sClone.getIp() + ":" + sClone.getPort());
       mSocket = new Socket();
@@ -864,9 +845,7 @@ public class DFE {
 
       try {
         totalResult = futureTotalResult.get();
-      } catch (InterruptedException e) {
-        Log.e(TAG, "Error on FutureTask while trying to run the method remotely or locally: " + e);
-      } catch (ExecutionException e) {
+      } catch (InterruptedException | ExecutionException e) {
         Log.e(TAG, "Error on FutureTask while trying to run the method remotely or locally: " + e);
       }
     }
@@ -893,6 +872,8 @@ public class DFE {
     @Override
     public Object call() {
 
+      RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_INITIAL_IMG);
+      RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_PREPARE_DATA);
       if (execLocation == Constants.LOCATION_LOCAL) {
         try {
 
@@ -909,16 +890,12 @@ public class DFE {
                 // first element.
                 PhoneSpecs otherPhone = it.next();
                 if (otherPhone.compareTo(myPhoneSpecs) > 0) {
+                  RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_OFFLOAD_D2D);
                   this.result = executeD2D(otherPhone);
                 }
               }
-            } catch (IOException e) {
-              Log.e(TAG, "Error while trying to run the method D2D: " + e);
-            } catch (ClassNotFoundException e) {
-              Log.e(TAG, "Error while trying to run the method D2D: " + e);
-            } catch (SecurityException e) {
-              Log.e(TAG, "Error while trying to run the method D2D: " + e);
-            } catch (NoSuchMethodException e) {
+            } catch (IOException | ClassNotFoundException | SecurityException
+                | NoSuchMethodException e) {
               Log.e(TAG, "Error while trying to run the method D2D: " + e);
             }
           }
@@ -926,6 +903,7 @@ public class DFE {
           // If the D2D execution didn't take place or something happened that the execution was
           // interrupted the result would still be null.
           if (this.result == null) {
+            RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_DECISION_LOCAL);
             this.result = executeLocally(m, pValues, o);
           }
 
@@ -963,8 +941,6 @@ public class DFE {
     private Object executeLocally(Method m, Object[] pValues, Object o)
         throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
 
-      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DECISION_LOCAL);
-
       Profiler profiler = null;
       ProgramProfiler progProfiler = new ProgramProfiler(mAppName, m.getName());
       DeviceProfiler devProfiler = new DeviceProfiler(mContext);
@@ -984,9 +960,10 @@ public class DFE {
       Log.d(TAG, "LOCAL " + m.getName() + ": Actual Invocation duration - "
           + mPureLocalDuration / 1000000 + "ms");
 
-      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_FINISHED_LOCAL);
       // Collect execution statistics
       profiler.stopAndLogExecutionInfoTracking(prepareDataDuration, mPureLocalDuration);
+
+      RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_LOCAL_FINISHED);
 
       return result;
     }
@@ -1039,11 +1016,10 @@ public class DFE {
         SecurityException, ClassNotFoundException, NoSuchMethodException {
       Object result = null;
 
-      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DECISION_REMOTE);
+      RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_DECISION_OFFLOAD_AS);
 
       // Maybe the developer has implemented the prepareDataOnClient() method that helps him prepare
-      // the
-      // data based on where the execution will take place then call it.
+      // the data based on where the execution will take place then call it.
       // Prepare the data by calling the prepareData(localFraction) implemented by the developer.
       try {
         long s = System.nanoTime();
@@ -1066,7 +1042,6 @@ public class DFE {
       try {
         Long startTime = System.nanoTime();
         mOutStream.write(RapidMessages.AC_OFFLOAD_REQ_AS);
-        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_REMOTE_SEND_DATA);
         result = sendAndExecute(m, pValues, o, mObjInStream, mObjOutStream);
 
         Long duration = System.nanoTime() - startTime;
@@ -1074,6 +1049,8 @@ public class DFE {
             + duration / 1000000 + "ms");
         // Collect execution statistics
         profiler.stopAndLogExecutionInfoTracking(prepareDataDuration, mPureRemoteDuration);
+
+        RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_OFFLOADING_FINISHED);
       } catch (Exception e) {
         // No such host exists, execute locally
         Log.e(TAG, "REMOTE ERROR: " + m.getName() + ": " + e);
@@ -1083,8 +1060,6 @@ public class DFE {
         // ConnectionRepair repair = new ConnectionRepair();
         // repair.start();
       }
-
-      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_FINISHED_REMOTE);
       return result;
     }
 
@@ -1146,9 +1121,17 @@ public class DFE {
       // Send the object itself
       sendObject(o, m, pValues, objOut);
 
+      // TODO To be more precise, this message should be sent by the AS, but for simplicity I put it
+      // here.
+      RapidUtils.sendAnimationMsg(config, AnimationMsg.AS_RUN_METHOD);
+
       // Read the results from the server
       Log.d(TAG, "Read Result");
       Object response = objIn.readObject();
+
+      // TODO To be more precise, this message should be sent by the AS, but for simplicity I put it
+      // here.
+      RapidUtils.sendAnimationMsg(config, AnimationMsg.AS_RESULT_AC);
 
       ResultContainer container = (ResultContainer) response;
       Object result;

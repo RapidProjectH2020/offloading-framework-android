@@ -26,7 +26,10 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import android.app.IntentService;
+import android.content.Context;
 import android.content.Intent;
+import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.util.Log;
 import eu.project.rapid.ac.d2d.D2DMessage.MsgType;
 import eu.project.rapid.ac.utils.Constants;
@@ -65,6 +68,21 @@ public class D2DClientService extends IntentService {
 
     try {
       Log.i(TAG, "Thread started");
+      writeSetOnFile();
+
+      WifiManager.MulticastLock lock = null;
+      WifiManager wifi = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+      Log.i(TAG, "Trying to acquire multicast lock...");
+      if (Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
+        if (lock == null) {
+          Log.i(TAG, "lock was null, creating...");
+          lock = wifi.createMulticastLock("WiFi_Lock");
+        }
+        lock.setReferenceCounted(true);
+        lock.acquire();
+        Log.i(TAG, "Lock acquired!");
+      }
+
       receiveSocket = new MulticastSocket(Constants.D2D_BROADCAST_PORT);
       receiveSocket.setBroadcast(true);
       Log.i(TAG, "Started listening on multicast socket.");
@@ -116,10 +134,11 @@ public class D2DClientService extends IntentService {
         otherPhone.setTimestamp(System.currentTimeMillis());
         otherPhone.setIp(packet.getAddress().getHostAddress());
         setD2dPhones.add(otherPhone);
+        // FIXME writing the set here is too heavy but I want this just for the demo. Later fix this
+        // with a smarter alternative.
+        writeSetOnFile();
       }
-    } catch (IOException e) {
-      Log.e(TAG, "Error while processing the packet: " + e);
-    } catch (ClassNotFoundException e) {
+    } catch (IOException | ClassNotFoundException e) {
       Log.e(TAG, "Error while processing the packet: " + e);
     }
   }
@@ -129,7 +148,6 @@ public class D2DClientService extends IntentService {
     public void run() {
       // Write the set in the filesystem so that other DFEs can use the D2D phones when needed.
       Iterator<PhoneSpecs> it = setD2dPhones.iterator();
-      Log.i(TAG, "Writing set of D2D devices on the sdcard file");
       // First clean the set from devices that have not been pinging recently
       while (it.hasNext()) {
         // If the last time we have seen this device is 5 pings before, then remove it.
@@ -138,14 +156,19 @@ public class D2DClientService extends IntentService {
           it.remove();
         }
       }
+      writeSetOnFile();
+    }
+  }
 
+  private void writeSetOnFile() {
+
+    try {
+      Log.i(TAG, "Writing set of D2D devices on the sdcard file");
       // This method is blocking, waiting for the lock on the file to be available.
-      try {
-        Utils.writeObjectToFile(Constants.FILE_D2D_PHONES, setD2dPhones);
-        Log.i(TAG, "Finished writing set of D2D devices on the sdcard file");
-      } catch (IOException e) {
-        Log.e(TAG, "Error while writing set of D2D devices on the sdcard file: " + e);
-      }
+      Utils.writeObjectToFile(Constants.FILE_D2D_PHONES, setD2dPhones);
+      Log.i(TAG, "Finished writing set of D2D devices on the sdcard file");
+    } catch (IOException e) {
+      Log.e(TAG, "Error while writing set of D2D devices on the sdcard file: " + e);
     }
   }
 }
