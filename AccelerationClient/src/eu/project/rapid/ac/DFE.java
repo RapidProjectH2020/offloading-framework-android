@@ -40,6 +40,7 @@ import java.security.PublicKey;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.TreeSet;
@@ -142,9 +143,13 @@ public class DFE {
 
   private long myId = -1;
   private String vmIp = "";
-  private String slamIp = "";
+  private String vmmIp = "";
+  private ArrayList<String> vmmIPs;
   // public LogRecord lastLogRecord;
   private PhoneSpecs myPhoneSpecs;
+  private static final int vmNrVCPUs = 1; // FIXME: number of CPUs on the VM
+  private static final int vmMemSize = 512; // FIXME
+  private static final int vmNrGpuCores = 1200; // FIXME
 
   private Set<PhoneSpecs> d2dSetPhones = new TreeSet<PhoneSpecs>();
   private ScheduledThreadPoolExecutor d2dSetReaderThread;
@@ -190,7 +195,7 @@ public class DFE {
     SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this.mContext);
     myId = prefs.getLong(Constants.MY_OLD_ID, -1);
     vmIp = prefs.getString(Constants.PREV_VM_IP, "");
-    slamIp = prefs.getString(Constants.PREV_SLAM_IP, "");
+    vmmIp = prefs.getString(Constants.PREV_VMM_IP, "");
 
     mDSE = new DSE(userChoice);
 
@@ -411,29 +416,20 @@ public class DFE {
 
     private boolean registerWithDsAndSlam() {
       Log.i(TAG, "Registering...");
+      boolean registeredWithSlam = false;
+
       if (registerWithDs()) {
         // register with SLAM
-        if (registerWithSlam()) {
+        int vmmIndex = 0;
 
-          myId = sClone.getId();
-          vmIp = sClone.getIp();
-
-          Log.i(TAG, "Saving my ID and the vmIp: " + myId + ", " + vmIp);
-          SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
-          SharedPreferences.Editor editor = prefs.edit();
-
-          editor.putLong(Constants.MY_OLD_ID, myId);
-          editor.putString(Constants.PREV_VM_IP, vmIp);
-
-          Log.i(TAG, "Saving the SLAM IP: " + slamIp);
-          editor.putString(Constants.PREV_SLAM_IP, slamIp);
-          editor.commit();
-
-          return true;
+        if (vmmIPs != null) {
+          do {
+            registeredWithSlam = registerWithSlam(vmmIPs.get(vmmIndex));
+            vmmIndex++;
+          } while (!registeredWithSlam && vmmIndex < vmmIPs.size());
         }
       }
-
-      return false;
+      return registeredWithSlam;
     }
 
     /**
@@ -444,6 +440,7 @@ public class DFE {
      * @throws UnknownHostException
      * @throws ClassNotFoundException
      */
+    @SuppressWarnings("unchecked")
     private boolean registerWithDs() {
 
       Log.d(TAG, "Starting as phone with ID: " + myId);
@@ -467,27 +464,38 @@ public class DFE {
           Log.i(TAG, "AC_REGISTER_PREV_DS");
           // Send message format: command (java byte), userId (java long), qosFlag (java int)
           dsOut.writeByte(RapidMessages.AC_REGISTER_PREV_DS);
+          dsOut.writeLong(myId); // send my user ID so that my previous VM can be released
         } else { // Connect to a new VM
           // RapidUtils.sendAnimationMsg(config, AnimationMsg.AC_NEW_REGISTER_DS);
           Log.i(TAG, "AC_REGISTER_NEW_DS");
           dsOut.writeByte(RapidMessages.AC_REGISTER_NEW_DS);
+
+          dsOut.writeLong(myId); // send my user ID so that my previous VM can be released
+          // FIXME: should not use static values here.
+          dsOut.writeInt(vmNrVCPUs); // send vcpuNum as int
+          dsOut.writeInt(vmMemSize); // send memSize as int
+          dsOut.writeInt(vmNrGpuCores); // send gpuCores as int
         }
 
-        dsOut.writeLong(myId); // send my user ID so that my previous VM can be released
-        dsOut.writeInt(RapidConstants.OS.ANDROID.ordinal());
-        dsOut.writeInt(RapidConstants.REGISTER_WITHOUT_QOS_PARAMS); // if there is QoS parameter,
-                                                                    // 1 else 0
         dsOut.flush();
 
-        // Receive message format: status (java byte), userId (java long), VM ipAddress (java UTF)
+        // Receive message format: status (java byte), userId (java long), SLAM ipAddress (java UTF)
         byte status = dsIn.readByte();
         Log.i(TAG, "Return Status: " + (status == RapidMessages.OK ? "OK" : "ERROR"));
         if (status == RapidMessages.OK) {
           myId = dsIn.readLong();
           Log.i(TAG, "userId is: " + myId);
-          slamIp = dsIn.readUTF();
-          Log.i(TAG, "SLAM IP address is: " + slamIp);
+
+          // Read the list of VMMs, which will be sorted based on free resources
+          vmmIPs = (ArrayList<String>) dsIn.readObject();
+
+          // Read the SLAM IP and port
+          String slamIp = dsIn.readUTF();
+          int slamPort = dsIn.readInt();
           config.setSlamIp(slamIp);
+          config.setSlamPort(slamPort);
+          Log.i(TAG, "SLAM address is: " + slamIp + ":" + slamPort);
+
           return true;
         }
       } catch (Exception e) {
@@ -502,13 +510,11 @@ public class DFE {
     }
 
     /**
-     * Read the config file to get the IP and port of Manager.<br>
-     * 
      * @throws IOException
      * @throws UnknownHostException
      * @throws ClassNotFoundException
      */
-    private boolean registerWithSlam() {
+    private boolean registerWithSlam(String vmmIp) {
 
       Socket slamSocket = null;
       ObjectOutputStream oos = null;
@@ -516,6 +522,7 @@ public class DFE {
 
       Log.i(TAG, "Registering with SLAM " + config.getSlamIp() + ":" + config.getSlamPort());
       try {
+
         slamSocket = new Socket();
         slamSocket.connect(new InetSocketAddress(config.getSlamIp(), config.getSlamPort()),
             10 * 1000);
@@ -526,26 +533,47 @@ public class DFE {
         RapidUtils.sendAnimationMsg(config, CONNECT_TO_PREVIOUS_VM
             ? AnimationMsg.AC_PREV_REGISTER_SLAM : AnimationMsg.AC_NEW_REGISTER_SLAM);
 
-        // Send the id to the SLAM
+        // Send the ID to the SLAM
         oos.writeByte(RapidMessages.AC_REGISTER_SLAM);
-        oos.writeInt(RapidConstants.OS.ANDROID.ordinal());
         oos.writeLong(myId);
+        oos.writeInt(RapidConstants.OS.ANDROID.ordinal());
+
+        // Send the vmmId and vmmPort to the SLAM so it can start the VM
+        oos.writeUTF(vmmIp);
+        oos.writeInt(config.getVmmPort());
+
+        // FIXME: should not use static values here.
+        oos.writeInt(vmNrVCPUs); // send vcpuNum as int
+        oos.writeInt(vmMemSize); // send memSize as int
+        oos.writeInt(vmNrGpuCores); // send gpuCores as int
+
         oos.flush();
 
-        int response = ois.readByte();
-        if (response == RapidMessages.OK) {
+        int slamResponse = ois.readByte();
+        if (slamResponse == RapidMessages.OK) {
           Log.i(TAG, "SLAM OK, getting the VM details");
-          String vmIp = ois.readUTF();
+          vmIp = ois.readUTF();
 
           sClone = new Clone("", vmIp);
           sClone.setId((int) myId);
 
+          Log.i(TAG, "Saving my ID and the vmIp: " + myId + ", " + vmIp);
+          SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
+          SharedPreferences.Editor editor = prefs.edit();
+
+          editor.putLong(Constants.MY_OLD_ID, myId);
+          editor.putString(Constants.PREV_VM_IP, vmIp);
+
+          Log.i(TAG, "Saving the VMM IP: " + vmmIp);
+          editor.putString(Constants.PREV_VMM_IP, vmmIp);
+          editor.commit();
+
           return true;
-        } else if (response == RapidMessages.ERROR) {
+        } else if (slamResponse == RapidMessages.ERROR) {
           Log.e(TAG, "SLAM registration replied with ERROR, VM will be null");
         } else {
-          Log.e(TAG,
-              "SLAM registration replied with uknown message " + response + ", VM will be null");
+          Log.e(TAG, "SLAM registration replied with uknown message " + slamResponse
+              + ", VM will be null");
         }
       } catch (IOException e) {
         Log.e(TAG, "IOException while talking to the SLAM: " + e);
