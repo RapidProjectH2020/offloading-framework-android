@@ -140,6 +140,7 @@ public class DFE {
   private static ObjectOutputStream mObjOutStream;
   private static InputStream mInStream;
   private static ObjectInputStream mObjInStream;
+  private final Object syncCreateCloseConnection = new Object();
 
   private long myId = -1;
   private String vmIp = "";
@@ -639,36 +640,38 @@ public class DFE {
    * Set up streams for the socket connection, perform initial communication with the clone.
    */
   private boolean establishConnection() {
-    try {
-      long sTime = System.nanoTime();
-      long startTxBytes = NetworkProfiler.getProcessTxBytes();
-      long startRxBytes = NetworkProfiler.getProcessRxBytes();
+    synchronized (syncCreateCloseConnection) {
+      try {
+        long sTime = System.nanoTime();
+        long startTxBytes = NetworkProfiler.getProcessTxBytes();
+        long startRxBytes = NetworkProfiler.getProcessRxBytes();
 
-      Log.i(TAG, "Connecting in CLEAR with AS on: " + sClone.getIp() + ":" + sClone.getPort());
-      mSocket = new Socket();
-      mSocket.connect(new InetSocketAddress(sClone.getIp(), sClone.getPort()), 10 * 1000);
+        Log.i(TAG, "Connecting in CLEAR with AS on: " + sClone.getIp() + ":" + sClone.getPort());
+        mSocket = new Socket();
+        mSocket.connect(new InetSocketAddress(sClone.getIp(), sClone.getPort()), 10 * 1000);
 
-      mOutStream = mSocket.getOutputStream();
-      mInStream = mSocket.getInputStream();
-      mObjOutStream = new ObjectOutputStream(mOutStream);
-      mObjInStream = new ObjectInputStream(mInStream);
+        mOutStream = mSocket.getOutputStream();
+        mInStream = mSocket.getInputStream();
+        mObjOutStream = new ObjectOutputStream(mOutStream);
+        mObjInStream = new ObjectInputStream(mInStream);
 
-      long dur = System.nanoTime() - sTime;
-      long totalTxBytes = NetworkProfiler.getProcessTxBytes() - startTxBytes;
-      long totalRxBytes = NetworkProfiler.getProcessRxBytes() - startRxBytes;
+        long dur = System.nanoTime() - sTime;
+        long totalTxBytes = NetworkProfiler.getProcessTxBytes() - startTxBytes;
+        long totalRxBytes = NetworkProfiler.getProcessRxBytes() - startRxBytes;
 
-      Log.d(TAG, "Socket and streams set-up time - " + dur / 1000000 + "ms");
-      Log.d(TAG, "Total bytes sent: " + totalTxBytes);
-      Log.d(TAG, "Total bytes received: " + totalRxBytes);
-      return onLineClear = true;
+        Log.d(TAG, "Socket and streams set-up time - " + dur / 1000000 + "ms");
+        Log.d(TAG, "Total bytes sent: " + totalTxBytes);
+        Log.d(TAG, "Total bytes received: " + totalRxBytes);
+        return onLineClear = true;
 
-    } catch (Exception e) {
-      e.printStackTrace();
-      fallBackToLocalExecution("Connection setup with the clone failed: " + e);
-    } finally {
-      onLineSSL = false;
+      } catch (Exception e) {
+        e.printStackTrace();
+        fallBackToLocalExecution("Connection setup with the clone failed: " + e);
+      } finally {
+        onLineSSL = false;
+      }
+      return onLineClear = false;
     }
-    return onLineClear = false;
   }
 
   /**
@@ -682,58 +685,60 @@ public class DFE {
       return false;
     }
 
-    try {
-      // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_CONNECT_VM);
+    synchronized (syncCreateCloseConnection) {
+      try {
+        // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_CONNECT_VM);
 
-      Long sTime = System.nanoTime();
-      long startTxBytes = NetworkProfiler.getProcessTxBytes();
-      long startRxBytes = NetworkProfiler.getProcessRxBytes();
+        Long sTime = System.nanoTime();
+        long startTxBytes = NetworkProfiler.getProcessTxBytes();
+        long startRxBytes = NetworkProfiler.getProcessRxBytes();
 
-      Log.i(TAG, "Connecting in SSL with clone: " + sClone.getIp() + ":" + sClone.getSslPort());
+        Log.i(TAG, "Connecting in SSL with clone: " + sClone.getIp() + ":" + sClone.getSslPort());
 
-      mSocket = config.getSslFactory().createSocket(sClone.getIp(), sClone.getSslPort());
-      // Log.i(TAG, "getEnableSessionCreation: " + ((SSLSocket)
-      // mSocket).getEnableSessionCreation());
-      // ((SSLSocket) mSocket).setEnableSessionCreation(false);
+        mSocket = config.getSslFactory().createSocket(sClone.getIp(), sClone.getSslPort());
+        // Log.i(TAG, "getEnableSessionCreation: " + ((SSLSocket)
+        // mSocket).getEnableSessionCreation());
+        // ((SSLSocket) mSocket).setEnableSessionCreation(false);
 
-      // sslContext.getClientSessionContext().getSession(null).invalidate();
+        // sslContext.getClientSessionContext().getSession(null).invalidate();
 
-      ((SSLSocket) mSocket).addHandshakeCompletedListener(new SSLHandshakeCompletedListener());
-      Log.i(TAG, "socket created");
+        ((SSLSocket) mSocket).addHandshakeCompletedListener(new SSLHandshakeCompletedListener());
+        Log.i(TAG, "socket created");
 
-      // Log.i(TAG, "Enabled cipher suites: ");
-      // for (String s : ((SSLSocket) mSocket).getEnabledCipherSuites()) {
-      // Log.i(TAG, s);
-      // }
+        // Log.i(TAG, "Enabled cipher suites: ");
+        // for (String s : ((SSLSocket) mSocket).getEnabledCipherSuites()) {
+        // Log.i(TAG, s);
+        // }
 
-      mOutStream = mSocket.getOutputStream();
-      mInStream = mSocket.getInputStream();
-      mObjOutStream = new ObjectOutputStream(mOutStream);
-      mObjInStream = new ObjectInputStream(mInStream);
+        mOutStream = mSocket.getOutputStream();
+        mInStream = mSocket.getInputStream();
+        mObjOutStream = new ObjectOutputStream(mOutStream);
+        mObjInStream = new ObjectInputStream(mInStream);
 
-      long dur = System.nanoTime() - sTime;
-      long totalTxBytes = NetworkProfiler.getProcessTxBytes() - startTxBytes;
-      long totalRxBytes = NetworkProfiler.getProcessRxBytes() - startRxBytes;
+        long dur = System.nanoTime() - sTime;
+        long totalTxBytes = NetworkProfiler.getProcessTxBytes() - startTxBytes;
+        long totalRxBytes = NetworkProfiler.getProcessRxBytes() - startRxBytes;
 
-      Log.d(TAG, "Socket and streams set-up time - " + dur / 1000000 + "ms");
-      Log.d(TAG, "Total bytes sent: " + totalTxBytes);
-      Log.d(TAG, "Total bytes received: " + totalRxBytes);
-      return onLineSSL = true;
+        Log.d(TAG, "Socket and streams set-up time - " + dur / 1000000 + "ms");
+        Log.d(TAG, "Total bytes sent: " + totalTxBytes);
+        Log.d(TAG, "Total bytes received: " + totalRxBytes);
+        return onLineSSL = true;
 
-    } catch (UnknownHostException e) {
-      e.printStackTrace();
-      fallBackToLocalExecution("UnknownHostException - Connection setup to server failed: " + e);
-    } catch (IOException e) {
-      e.printStackTrace();
-      fallBackToLocalExecution("IOException - Connection setup to server failed: " + e);
-    } catch (Exception e) {
-      e.printStackTrace();
-      fallBackToLocalExecution("Exception - Connection setup to server failed: " + e);
-    } finally {
-      onLineClear = false;
+      } catch (UnknownHostException e) {
+        e.printStackTrace();
+        fallBackToLocalExecution("UnknownHostException - Connection setup to server failed: " + e);
+      } catch (IOException e) {
+        e.printStackTrace();
+        fallBackToLocalExecution("IOException - Connection setup to server failed: " + e);
+      } catch (Exception e) {
+        e.printStackTrace();
+        fallBackToLocalExecution("Exception - Connection setup to server failed: " + e);
+      } finally {
+        onLineClear = false;
+      }
+
+      return onLineSSL = false;
     }
-
-    return onLineSSL = false;
   }
 
   private class SSLHandshakeCompletedListener implements HandshakeCompletedListener {
@@ -769,12 +774,18 @@ public class DFE {
   }
 
   private void closeConnection() {
-
-    // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DISCONNECT_VM);
-    RapidUtils.closeQuietly(mObjOutStream);
-    RapidUtils.closeQuietly(mObjInStream);
-    RapidUtils.closeQuietly(mSocket);
-    onLineClear = onLineSSL = false;
+    new Thread(new Runnable() {
+      @Override
+      public void run() {
+        synchronized (syncCreateCloseConnection) {
+          // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DISCONNECT_VM);
+          RapidUtils.closeQuietly(mObjOutStream);
+          RapidUtils.closeQuietly(mObjInStream);
+          RapidUtils.closeQuietly(mSocket);
+          onLineClear = onLineSSL = false;
+        }
+      }
+    }).start();
   }
 
   private void fallBackToLocalExecution(String message) {
