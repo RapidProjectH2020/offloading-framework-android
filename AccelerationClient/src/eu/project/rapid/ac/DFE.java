@@ -86,6 +86,7 @@ import eu.project.rapid.ac.utils.Utils;
 import eu.project.rapid.common.Clone;
 import eu.project.rapid.common.Configuration;
 import eu.project.rapid.common.RapidConstants;
+import eu.project.rapid.common.RapidConstants.COMM_TYPE;
 import eu.project.rapid.common.RapidMessages;
 import eu.project.rapid.common.RapidMessages.AnimationMsg;
 import eu.project.rapid.common.RapidUtils;
@@ -102,8 +103,6 @@ public class DFE {
   private static final String TAG = "DFE";
 
   public static boolean CONNECT_TO_PREVIOUS_VM = false;
-  public static final int COMM_CLEAR = 1;
-  public static final int COMM_SSL = 2;
 
   private Configuration config;
   public static final int SDK_INT = Build.VERSION.SDK_INT;
@@ -111,7 +110,7 @@ public class DFE {
   private static int mRegime;
   public static final int REGIME_CLIENT = 1;
   public static final int REGIME_SERVER = 2;
-  public static int commType = DFE.COMM_CLEAR;
+  public static COMM_TYPE commType = COMM_TYPE.SSL;
   private int userChoice = Constants.LOCATION_DYNAMIC_TIME_ENERGY;
   private Method prepareDataMethod = null;
 
@@ -124,7 +123,8 @@ public class DFE {
   private Context mContext;
   private PackageManager mPManager;
 
-  public static boolean onLine = false;
+  public static boolean onLineClear = false;
+  public static boolean onLineSSL = false;
   public static boolean dfeReady = false;
   private int nrClones;
   private DSE mDSE;
@@ -160,10 +160,9 @@ public class DFE {
    * Interface to be implemented by some class that wants to be updated about some events.
    * 
    * @author sokol
-   *
    */
   public interface DfeCallback {
-    public void vmConnectionStatusUpdate(); // Get updates about the VM connection status.
+    public void vmConnectionStatusUpdate(); // Send updates about the VM connection status.
   }
 
   /**
@@ -328,20 +327,20 @@ public class DFE {
 
       RapidUtils.sendAnimationMsg(config, CONNECT_TO_PREVIOUS_VM ? AnimationMsg.AC_PREV_REGISTER_VM
           : AnimationMsg.AC_NEW_REGISTER_VM);
-      if (commType == DFE.COMM_CLEAR) {
+      if (commType == COMM_TYPE.CLEAR) {
         publishProgress("Clear connection with the clone: " + sClone);
         establishConnection();
-      } else { // (commType == RapidMessages.COMM_SSL)
+      } else { // (commType == COMM_TYPE.SSL)
         publishProgress("SSL connection with the clone: " + sClone);
         if (!establishSslConnection()) {
           Log.w(TAG, "Setting commType to CLEAR");
-          commType = DFE.COMM_CLEAR;
+          commType = COMM_TYPE.CLEAR;
           establishConnection();
         }
       }
 
       // If the connection was successful then try to send the app to the clone
-      if (onLine) {
+      if (onLineClear || onLineSSL) {
         RapidUtils.sendAnimationMsg(config,
             CONNECT_TO_PREVIOUS_VM ? AnimationMsg.AC_PREV_CONN_VM : AnimationMsg.AC_NEW_CONN_VM);
 
@@ -645,7 +644,7 @@ public class DFE {
       long startTxBytes = NetworkProfiler.getProcessTxBytes();
       long startRxBytes = NetworkProfiler.getProcessRxBytes();
 
-      Log.i(TAG, "Connecting with AS on: " + sClone.getIp() + ":" + sClone.getPort());
+      Log.i(TAG, "Connecting in CLEAR with AS on: " + sClone.getIp() + ":" + sClone.getPort());
       mSocket = new Socket();
       mSocket.connect(new InetSocketAddress(sClone.getIp(), sClone.getPort()), 10 * 1000);
 
@@ -654,8 +653,6 @@ public class DFE {
       mObjOutStream = new ObjectOutputStream(mOutStream);
       mObjInStream = new ObjectInputStream(mInStream);
 
-      onLine = true;
-
       long dur = System.nanoTime() - sTime;
       long totalTxBytes = NetworkProfiler.getProcessTxBytes() - startTxBytes;
       long totalRxBytes = NetworkProfiler.getProcessRxBytes() - startRxBytes;
@@ -663,13 +660,15 @@ public class DFE {
       Log.d(TAG, "Socket and streams set-up time - " + dur / 1000000 + "ms");
       Log.d(TAG, "Total bytes sent: " + totalTxBytes);
       Log.d(TAG, "Total bytes received: " + totalRxBytes);
+      return onLineClear = true;
 
     } catch (Exception e) {
+      e.printStackTrace();
       fallBackToLocalExecution("Connection setup with the clone failed: " + e);
+    } finally {
+      onLineSSL = false;
     }
-
-    return true;
-
+    return onLineClear = false;
   }
 
   /**
@@ -690,7 +689,7 @@ public class DFE {
       long startTxBytes = NetworkProfiler.getProcessTxBytes();
       long startRxBytes = NetworkProfiler.getProcessRxBytes();
 
-      Log.i(TAG, "Trying to connect to clone: " + sClone.getIp() + ":" + sClone.getSslPort());
+      Log.i(TAG, "Connecting in SSL with clone: " + sClone.getIp() + ":" + sClone.getSslPort());
 
       mSocket = config.getSslFactory().createSocket(sClone.getIp(), sClone.getSslPort());
       // Log.i(TAG, "getEnableSessionCreation: " + ((SSLSocket)
@@ -712,8 +711,6 @@ public class DFE {
       mObjOutStream = new ObjectOutputStream(mOutStream);
       mObjInStream = new ObjectInputStream(mInStream);
 
-      onLine = true;
-
       long dur = System.nanoTime() - sTime;
       long totalTxBytes = NetworkProfiler.getProcessTxBytes() - startTxBytes;
       long totalRxBytes = NetworkProfiler.getProcessRxBytes() - startRxBytes;
@@ -721,16 +718,22 @@ public class DFE {
       Log.d(TAG, "Socket and streams set-up time - " + dur / 1000000 + "ms");
       Log.d(TAG, "Total bytes sent: " + totalTxBytes);
       Log.d(TAG, "Total bytes received: " + totalRxBytes);
+      return onLineSSL = true;
 
     } catch (UnknownHostException e) {
-      fallBackToLocalExecution("Connection setup to server failed: " + e);
+      e.printStackTrace();
+      fallBackToLocalExecution("UnknownHostException - Connection setup to server failed: " + e);
     } catch (IOException e) {
-      fallBackToLocalExecution("Connection setup to server failed: " + e);
+      e.printStackTrace();
+      fallBackToLocalExecution("IOException - Connection setup to server failed: " + e);
     } catch (Exception e) {
-      fallBackToLocalExecution("Connection setup to server failed: " + e);
+      e.printStackTrace();
+      fallBackToLocalExecution("Exception - Connection setup to server failed: " + e);
+    } finally {
+      onLineClear = false;
     }
 
-    return true;
+    return onLineSSL = false;
   }
 
   private class SSLHandshakeCompletedListener implements HandshakeCompletedListener {
@@ -768,17 +771,15 @@ public class DFE {
   private void closeConnection() {
 
     // RapidUtils.sendAnimationMsg(config, RapidMessages.AC_DISCONNECT_VM);
-
     RapidUtils.closeQuietly(mObjOutStream);
     RapidUtils.closeQuietly(mObjInStream);
     RapidUtils.closeQuietly(mSocket);
-    onLine = false;
+    onLineClear = onLineSSL = false;
   }
 
   private void fallBackToLocalExecution(String message) {
     Log.e(TAG, message);
-
-    onLine = false;
+    onLineClear = onLineSSL = false;
   }
 
   /**
@@ -908,7 +909,7 @@ public class DFE {
           // First try to see if we can offload this task to a more powerful device that is in D2D
           // distance.
           // Do this only if we are not connected to a clone, otherwise it becomes a mess.
-          if (!onLine) {
+          if (!onLineClear && !onLineSSL) {
 
             // I'm sure this cast is correct since it has been us who wrote the object before.
             try {
@@ -1251,7 +1252,7 @@ public class DFE {
       // Try simply restarting the connection
       Log.d(TAG, "Trying to reestablish connection to the server");
       synchronized (this) {
-        if (!onLine) {
+        if (!onLineClear && !onLineSSL) {
           // Show a spinning dialog while connecting to the Manager and to the clone.
           // pd = ProgressDialog.show(mContext, "Working..", "Initial network tasks...", true,
           // false);
@@ -1264,7 +1265,7 @@ public class DFE {
       // If still offline, establish intent listeners that would try to
       // restart the connection when the service comes back up
       synchronized (this) {
-        if (!onLine) {
+        if (!onLineClear && !onLineSSL) {
           Log.d(TAG, "Reestablishing failed - register listeners for reconnecting");
           final ConnectivityManager connectivityManager =
               (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -1289,6 +1290,10 @@ public class DFE {
         }
       }
     }
+  }
+
+  public String getConnectionType() {
+    return NetworkProfiler.currentNetworkTypeName;
   }
 
   public void setUserChoice(int userChoice) {
@@ -1337,16 +1342,17 @@ public class DFE {
    * @param buffLogFile
    * @throws IOException
    */
-  public void testConnection(int givenCommType, BufferedWriter buffLogFile) throws IOException {
+  public void testConnection(COMM_TYPE givenCommType, BufferedWriter buffLogFile)
+      throws IOException {
 
-    if (onLine) {
+    if (onLineClear || onLineSSL) {
       closeConnection();
     }
     commType = givenCommType;
 
     long startTime = System.nanoTime();
 
-    if (givenCommType == DFE.COMM_SSL) {
+    if (givenCommType == COMM_TYPE.SSL) {
       establishSslConnection();
     } else {
       establishConnection();
@@ -1354,8 +1360,9 @@ public class DFE {
 
     long totalTime = System.nanoTime() - startTime;
 
-    if (buffLogFile != null)
+    if (buffLogFile != null) {
       buffLogFile.write(totalTime + "\n");
+    }
   }
 
   /**
@@ -1389,15 +1396,13 @@ public class DFE {
         mOutStream.write(RapidMessages.SEND_INT);
         // sleep(3*1000);
 
-        // txBytes = NetworkProfiler.getProcessTxBytes();
+        txBytes = NetworkProfiler.getProcessTxBytes();
         txTime = System.nanoTime();
         mObjOutStream.writeInt((int) System.currentTimeMillis());
         mObjOutStream.flush();
         mInStream.read();
         txTime = System.nanoTime() - txTime;
-
-        // sleep(7*1000);
-        // txBytes = NetworkProfiler.getProcessTxBytes() - txBytes;
+        txBytes = NetworkProfiler.getProcessTxBytes() - txBytes;
 
         // txTime = mObjInStream.readLong();
 
@@ -1407,15 +1412,13 @@ public class DFE {
         mOutStream.write(RapidMessages.SEND_BYTES);
         // sleep(3*1000);
 
-        // txBytes = NetworkProfiler.getProcessTxBytes();
+        txBytes = NetworkProfiler.getProcessTxBytes();
         txTime = System.nanoTime();
         mObjOutStream.writeObject(bytesToSend);
         mObjOutStream.flush();
         mInStream.read();
         txTime = System.nanoTime() - txTime;
-        // txBytes = NetworkProfiler.getProcessTxBytes() - txBytes;
-
-        // sleep(57*1000);
+        txBytes = NetworkProfiler.getProcessTxBytes() - txBytes;
         // txTime = mObjInStream.readLong();
 
         break;
@@ -1451,7 +1454,7 @@ public class DFE {
       case 4:
         mOutStream.write(RapidMessages.RECEIVE_INT);
 
-        // rxBytes = NetworkProfiler.getProcessRxBytes();
+        rxBytes = NetworkProfiler.getProcessRxBytes();
         // rxTime = System.nanoTime();
         mObjInStream.readInt();
         mOutStream.write(1);
@@ -1460,7 +1463,7 @@ public class DFE {
 
         // sleep(8*1000);
         // rxTime = System.nanoTime() - rxTime;
-        // rxBytes = NetworkProfiler.getProcessRxBytes() - rxBytes;
+        rxBytes = NetworkProfiler.getProcessRxBytes() - rxBytes;
 
         break;
 
@@ -1469,7 +1472,7 @@ public class DFE {
         mObjOutStream.writeInt(nrBytesToReceive);
         mObjOutStream.flush();
 
-        // rxBytes = NetworkProfiler.getProcessRxBytes();
+        rxBytes = NetworkProfiler.getProcessRxBytes();
         // rxTime = System.nanoTime();
         mObjInStream.readObject();
         mOutStream.write(1);
@@ -1478,7 +1481,7 @@ public class DFE {
 
         // sleep(8*1000);
         // rxTime = System.nanoTime() - rxTime;
-        // rxBytes = NetworkProfiler.getProcessRxBytes() - rxBytes;
+        rxBytes = NetworkProfiler.getProcessRxBytes() - rxBytes;
 
         break;
     }

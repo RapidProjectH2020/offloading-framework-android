@@ -72,7 +72,7 @@ public class AccelerationServer extends Service {
 
   // When doing tests about send/receive data
   // To avoid creating the objects in the real deployment
-  private static final boolean TESTING_UL_DL_RATE = false;
+  private static final boolean TESTING_UL_DL_RATE = true;
   public static SparseArray<byte[]> bytesToSend;
 
   private static final String TAG = "AccelerationServer";

@@ -235,6 +235,20 @@
         <LinearLayout
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal" >
+
+            <Button
+                android:id="@+id/testConnection"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:onClick="onTestConnection"
+                android:text="@string/testConnection" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
             android:orientation="horizontal" >
 
             <TextView
@@ -264,7 +278,7 @@
 		android:layout_height="wrap_content" android:gravity="center_vertical"
 		android:text="Single Methods" />
         -->
-<!--
+        <!--
         <Button
             android:id="@+id/jni1"
             android:layout_width="fill_parent"
@@ -285,8 +299,7 @@
             android:layout_height="wrap_content"
             android:onClick="onClickVirusScanning"
             android:text="@string/virusScanning" />
-            
-            -->
+        -->
 
         <TextView
             android:id="@+id/textVmConnectionStatus"
@@ -298,7 +311,7 @@
             android:textColor="@android:color/holo_red_dark"
             android:textSize="18sp" />
 
-        <!-- 
+        <!--
         <View style="@style/Divider" />
 
         <TextView

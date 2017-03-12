@@ -70,14 +70,15 @@
 	<string name="start_as_old_button_description">If this device was connected previously to a VM, then the Registration Manager will try to connect to that VM again.</string>
 	<string name="start_as_D2D_peer">Connect to nearby mobile devices</string>
 	<string name="textWarningOnlyD2DOffloading">Device not connected to Internet!\nYou can\'t connect to remote VMs on the cloud, only to nearby mobile devices for D2D offloading.</string>
-	<string name="textVmConnected">Connected to VM</string>
+	<string name="textVmConnectedClear">Connected to VM in Clear</string>
+	<string name="textVmConnectedSSL">Connected to VM in SSL</string>
 	<string name="textVmDisconnected">Not Connected to VM</string>
 	
 	<string name="textTestImplementation">Testing DSE and DFE implementation</string>
 	<string name="dseTestButtonText">Test DSE performance</string>
 	<string name="downloadFile">Download file from Manager</string>
 	<string name="uploadFile">Upload file to Manager</string>
-	<string name="testConnection">Connect 1000 times to clone</string>
+	<string name="testConnection">Test connection, UL, and DL</string>
 	<string name="chooseDataRate">Choose data rate: </string>
 	<string name="testSendBytes">Test sending bytes 1000 times to clone</string>
 	<string name="testReceiveBytes">Test receiving bytes 1000 times from clone</string>

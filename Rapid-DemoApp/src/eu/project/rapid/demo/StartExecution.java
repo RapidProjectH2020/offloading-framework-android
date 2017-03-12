@@ -15,8 +15,13 @@
  *******************************************************************************/
 package eu.project.rapid.demo;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Random;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
@@ -36,6 +41,7 @@ import android.widget.Toast;
 import eu.project.rapid.ac.DFE;
 import eu.project.rapid.ac.utils.Constants;
 import eu.project.rapid.common.Clone;
+import eu.project.rapid.common.RapidConstants.COMM_TYPE;
 import eu.project.rapid.queens.NQueens;
 import eu.project.rapid.sudoku.Sudoku;
 import eu.project.rapid.synthBenchmark.JniTest;
@@ -97,18 +103,23 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
   private class VmConnectionStatusUpdater implements Runnable {
 
     public void run() {
-      if (DFE.onLine) {
-        handler.post(new Runnable() {
-          public void run() {
-            textViewVmConnected.setText(R.string.textVmConnected);
-            textViewVmConnected.setTextColor(Color.GREEN);
-
-            for (int i = 0; i < executionRadioGroup.getChildCount(); i++) {
-              executionRadioGroup.getChildAt(i).setEnabled(true);
-            }
+      handler.post(new Runnable() {
+        public void run() {
+          textViewVmConnected.setTextColor(Color.GREEN);
+          if (DFE.onLineClear) {
+            textViewVmConnected.setText(R.string.textVmConnectedClear);
+          } else if (DFE.onLineSSL) {
+            textViewVmConnected.setText(R.string.textVmConnectedSSL);
+          } else {
+            textViewVmConnected.setTextColor(Color.RED);
+            textViewVmConnected.setText(R.string.textVmDisconnected);
           }
-        });
-      }
+
+          for (int i = 0; i < executionRadioGroup.getChildCount(); i++) {
+            executionRadioGroup.getChildAt(i).setEnabled(true);
+          }
+        }
+      });
     }
   }
 
@@ -354,6 +365,323 @@ public class StartExecution extends Activity implements DFE.DfeCallback {
       Log.i(TAG, "Nothing selected on clones spinner");
     }
   };
+
+  public void onTestConnection(View v) {
+    new TestConnection().execute();
+    sleep(10 * 1000);
+    onTestSendBytes(null);
+  }
+
+
+  private class TestConnection extends AsyncTask<Void, String, Void> {
+
+    // Show a spinning dialog
+    ProgressDialog pd = ProgressDialog.show(StartExecution.this, "Connection test...",
+        "Measuring the connection overhead...", true, false);
+
+    @Override
+    protected Void doInBackground(Void... params) {
+      Log.i(TAG, "Testing how much it takes to connect to the clone using different strategies.");
+
+      sleep(10 * 1000); // Otherwise the pd will not start
+      int NR_TESTS = 100;
+      String[] stringCommTypes = {"CLEAR", "SSL"};
+      COMM_TYPE[] commTypes = {COMM_TYPE.CLEAR, COMM_TYPE.SSL};
+
+      for (int i = 0; i < commTypes.length; i++) {
+        publishProgress("Measuring connection in: " + commTypes[i]);
+        File logFile = new File(Constants.TEST_LOGS_FOLDER + "connection_test_" + stringCommTypes[i]
+            + "_" + dfe.getConnectionType() + ".csv");
+        try {
+          logFile.delete();
+          logFile.createNewFile();
+          BufferedWriter buffLogFile = new BufferedWriter(new FileWriter(logFile, true));
+
+          for (int i1 = 0; i1 < NR_TESTS; i1++) {
+            sleep(1 * 1000);
+            try {
+              dfe.testConnection(commTypes[i], buffLogFile);
+            } catch (IOException e) {
+              e.printStackTrace();
+            }
+          }
+
+          buffLogFile.close();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
+      return null;
+    }
+
+    @Override
+    protected void onProgressUpdate(String... progress) {
+      Log.i(TAG, progress[0]);
+      if (pd != null) {
+        pd.setMessage(progress[0]);
+      }
+    }
+
+    @Override
+    protected void onPostExecute(Void result) {
+      Log.i(TAG, "Finished measuring the connection overhead...");
+      if (pd != null) {
+        pd.dismiss();
+      }
+    }
+
+    @Override
+    protected void onPreExecute() {
+      Log.i(TAG, "Started measuring the connection overhead...");
+    }
+
+  }
+
+  public void onTestSendBytes(View v) {
+    Log.i(TAG,
+        "Testing how much it takes to send data of different size to the clone using different strategies.");
+    new TestSendBytes().execute();
+    sleep(10 * 1000);
+    onTestReceiveBytes(null);
+  }
+
+  private class TestSendBytes extends AsyncTask<Void, String, Void> {
+
+    // Show a spinning dialog
+    ProgressDialog pd = ProgressDialog.show(StartExecution.this, "Working...",
+        "Measuring the UL overhead...", true, false);
+
+    @Override
+    protected Void doInBackground(Void... params) {
+      // SSL_NO_REUSE makes sense only for the connection test.
+      // Once the connection is setup it works exactly like SSL.
+      // Since I am going to show only the results for 4 bytes, 1KB, and 1MB measure the energy only
+      // for these sizes
+      COMM_TYPE[] commTypes = {COMM_TYPE.CLEAR, COMM_TYPE.SSL};
+      String[] stringCommTypes = {"CLEAR", "SSL"};
+      int[] nrTests = {200, 100, 10};
+      int[] bytesToSendSize = {4, 1024, 1024 * 1024};
+      String[] bytesSizeToSendString = {"4B", "1KB", "1MB"};
+
+      // int[] nrTests = {5};
+      // int[] bytesToSendSize = {1 * 1024 * 1024};
+      // String[] bytesSizeToSendString = {"1MB"};
+
+      ArrayList<byte[]> bytesToSend = new ArrayList<byte[]>();
+      for (int i = 0; i < bytesToSendSize.length; i++) {
+        byte[] temp = new byte[bytesToSendSize[i]];
+        new Random().nextBytes(temp);
+        bytesToSend.add(temp);
+      }
+
+      // Measure the increase of data size due to encryption strategies.
+      File bytesLogFile = new File(Constants.TEST_LOGS_FOLDER + "send_bytes_test_size.csv");
+      BufferedWriter buffBytesLogFile = null;
+
+      try {
+        bytesLogFile.delete();
+        bytesLogFile.createNewFile();
+        buffBytesLogFile = new BufferedWriter(new FileWriter(bytesLogFile, true));
+      } catch (IOException e2) {
+        e2.printStackTrace();
+      }
+
+      // Sleep 10 seconds before starting the energy measurement experiment to avoid the errors
+      // introduced by pressing the button
+      sleep(10 * 1000);
+
+      for (int j = 0; j < bytesToSendSize.length; j++) {
+        try {
+          buffBytesLogFile.write(bytesSizeToSendString[j] + "\t");
+        } catch (IOException e2) {
+          e2.printStackTrace();
+        }
+
+        for (int i1 = 0; i1 < commTypes.length; i1++) {
+
+          publishProgress("UL test of " + bytesSizeToSendString[j] + " bytes in " + commTypes[i1]);
+
+          File logFile = new File(Constants.TEST_LOGS_FOLDER + "send_" + bytesToSendSize[j]
+              + "_bytes_test_" + stringCommTypes[i1] + "_" + dfe.getConnectionType() + ".csv");
+
+          try {
+            logFile.delete();
+            logFile.createNewFile();
+            BufferedWriter buffLogFile = new BufferedWriter(new FileWriter(logFile, true));
+
+            double totalTxBytes = 0;
+            int nrSuccessTests = 0;
+            for (int i11 = 0; i11 < nrTests[j]; i11++) {
+              try {
+                // Change the connection to the new communication protocol
+                // I need to reset the connection otherwise the objects are not sent, only the
+                // pointer is sent.
+                dfe.testConnection(commTypes[i1], null);
+                totalTxBytes +=
+                    dfe.testSendBytes(bytesToSendSize[j], bytesToSend.get(j), buffLogFile);
+                nrSuccessTests++;
+              } catch (IOException e1) {
+                e1.printStackTrace();
+              }
+            }
+
+            // totalTxBytes /= nrTests[j];
+            totalTxBytes = (nrSuccessTests > 0) ? totalTxBytes /= nrSuccessTests : -1;
+
+            buffBytesLogFile.write(totalTxBytes + ((i1 == commTypes.length - 1) ? "\n" : "\t"));
+            buffLogFile.close();
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+          sleep(1 * 1000);
+        }
+        sleep(1 * 1000);
+      }
+
+      try {
+        buffBytesLogFile.close();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+
+      return null;
+    }
+
+    @Override
+    protected void onProgressUpdate(String... progress) {
+      Log.i(TAG, progress[0]);
+      if (pd != null) {
+        pd.setMessage(progress[0]);
+      }
+    }
+
+    @Override
+    protected void onPostExecute(Void result) {
+      Log.i(TAG, "Finished measuring the UL overhead...");
+      if (pd != null) {
+        pd.dismiss();
+      }
+    }
+  }
+
+  public void onTestReceiveBytes(View v) {
+    Log.i(TAG,
+        "Testing how much it takes to receive data of different size from the clone using different strategies.");
+    new TestReceiveBytes().execute();
+  }
+
+  private class TestReceiveBytes extends AsyncTask<Void, String, Void> {
+
+    // Show a spinning dialog
+    ProgressDialog pd = ProgressDialog.show(StartExecution.this, "Working...",
+        "Measuring the DL overhead...", true, false);
+
+    @Override
+    protected Void doInBackground(Void... params) {
+      // SSL_NO_REUSE makes sense only for the connection test.
+      // Once the connection is setup it works exactly like SSL.
+      // Since I am going to show only the results for 4 bytes, 1KB, and 1MB measure the energy only
+      // for these sizes
+      COMM_TYPE[] commTypes = {COMM_TYPE.CLEAR, COMM_TYPE.SSL};
+      String[] stringCommTypes = {"CLEAR", "SSL"};
+      int[] nrTests = {200, 100, 10};
+      int[] bytesToReceiveSize = {4, 1024, 1024 * 1024};
+      String[] bytesSizeToReceiveString = {"4B", "1KB", "1MB"};
+
+      // int[] nrTests = {5};
+      // int[] bytesToReceiveSize = {1 * 1024 * 1024};
+      // String[] bytesSizeToReceiveString = {"1MB"};
+
+      // Measure the increase of data size due to encryption strategies.
+      File bytesLogFile = new File(Constants.TEST_LOGS_FOLDER + "receive_bytes_test_size.csv");
+      BufferedWriter buffBytesLogFile = null;
+
+      try {
+        bytesLogFile.delete();
+        bytesLogFile.createNewFile();
+        buffBytesLogFile = new BufferedWriter(new FileWriter(bytesLogFile, true));
+      } catch (IOException e2) {
+        e2.printStackTrace();
+      }
+
+      // Sleep 10 seconds before starting the energy measurement experiment to avoid the errors
+      // introduced by pressing the button
+      sleep(10 * 1000);
+
+      for (int bs = 0; bs < bytesToReceiveSize.length; bs++) {
+        try {
+          buffBytesLogFile.write(bytesSizeToReceiveString[bs] + "\t");
+        } catch (IOException e2) {
+          e2.printStackTrace();
+        }
+
+        for (int ct = 0; ct < commTypes.length; ct++) {
+
+          publishProgress("DL test of " + bytesToReceiveSize[bs] + " bytes in " + commTypes[ct]);
+
+          File logFile = new File(Constants.TEST_LOGS_FOLDER + "receive_" + bytesToReceiveSize[bs]
+              + "_bytes_test_" + stringCommTypes[ct] + "_" + dfe.getConnectionType() + ".csv");
+
+          try {
+            logFile.delete();
+            logFile.createNewFile();
+            BufferedWriter buffLogFile = new BufferedWriter(new FileWriter(logFile, true));
+
+            double totalRxBytes = 0;
+            int nrSuccessTests = 0;
+            for (int i = 0; i < nrTests[bs]; i++) {
+
+              Log.i(TAG, "Receiving " + bytesToReceiveSize[bs] + " bytes using "
+                  + stringCommTypes[ct] + " connection");
+
+              try {
+                // Change the connection to the new communication protocol
+                dfe.testConnection(commTypes[ct], null);
+                totalRxBytes += dfe.testReceiveBytes(bytesToReceiveSize[bs], buffLogFile);
+                nrSuccessTests++;
+              } catch (IOException e1) {
+                e1.printStackTrace();
+              }
+            }
+            totalRxBytes = (nrSuccessTests > 0) ? totalRxBytes /= nrSuccessTests : -1;
+
+            buffBytesLogFile.write(totalRxBytes + ((ct == commTypes.length - 1) ? "\n" : "\t"));
+            buffLogFile.close();
+          } catch (IOException e) {
+            e.printStackTrace();
+          } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+          }
+          sleep(1 * 1000);
+        }
+        sleep(1 * 1000);
+      }
+
+      try {
+        buffBytesLogFile.close();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+      return null;
+    }
+
+    @Override
+    protected void onProgressUpdate(String... progress) {
+      Log.i(TAG, progress[0]);
+      if (pd != null) {
+        pd.setMessage(progress[0]);
+      }
+    }
+
+    @Override
+    protected void onPostExecute(Void result) {
+      Log.i(TAG, "Finished measuring the DL overhead...");
+      if (pd != null) {
+        pd.dismiss();
+      }
+    }
+
+  }
 
   private void sleep(int millis) {
     try {

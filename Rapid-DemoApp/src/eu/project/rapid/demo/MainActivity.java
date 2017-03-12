@@ -29,6 +29,7 @@ import android.widget.EditText;
 import android.widget.RadioGroup;
 import android.widget.RadioGroup.OnCheckedChangeListener;
 import eu.project.rapid.ac.DFE;
+import eu.project.rapid.common.RapidConstants.COMM_TYPE;
 import eu.project.rapid.common.RapidUtils;
 
 /**
@@ -73,12 +74,12 @@ public class MainActivity extends Activity {
     switch (radioButton.getId()) {
 
       case R.id.radio_clear_communication:
-        DFE.commType = DFE.COMM_CLEAR;
+        DFE.commType = COMM_TYPE.CLEAR;
         Log.i(TAG, "The communication UE-VM should be performed in clear");
         break;
 
       case R.id.radio_ssl_communication:
-        DFE.commType = DFE.COMM_SSL;
+        DFE.commType = COMM_TYPE.SSL;
         Log.i(TAG, "The communication UE-VM should be performed using SSL");
         break;
 

@@ -80,20 +80,19 @@
         android:paddingBottom="15dp" >
 
         <RadioButton
-            android:id="@+id/radio_clear_communication"
+            android:id="@+id/radio_ssl_communication"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:checked="true"
             android:onClick="onRadioCommunicationTypeChecked"
-            android:text="@string/radioClearCommunication" />
-
+            android:text="@string/radioSSLCommunication" />
+        
         <RadioButton
-            android:id="@+id/radio_ssl_communication"
+            android:id="@+id/radio_clear_communication"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:enabled="false"
             android:onClick="onRadioCommunicationTypeChecked"
-            android:text="@string/radioSSLCommunication" />
+            android:text="@string/radioClearCommunication" />
 
         <RadioButton
             android:id="@+id/radio_choose_from_annotation_communication"

@@ -51,7 +51,7 @@ public class DSE {
    */
   public int findExecLocation(String appName, String methodName) {
 
-    if (!DFE.onLine || userChoice == Constants.LOCATION_LOCAL) {
+    if (!DFE.onLineClear && !DFE.onLineSSL || userChoice == Constants.LOCATION_LOCAL) {
       // if (userChoice == Constants.LOCATION_LOCAL) {
       return Constants.LOCATION_LOCAL;
     } else if (userChoice == Constants.LOCATION_REMOTE) {
